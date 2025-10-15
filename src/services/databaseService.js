@@ -433,6 +433,8 @@ const databaseService = {
 
   async updateTask(id, updates) {
     try {
+      console.log('🔵 Updating task:', id, 'with updates:', updates);
+      
       // Map camelCase to snake_case for database
       const dbUpdates = {};
       if (updates.title !== undefined) dbUpdates.title = updates.title;
@@ -469,18 +471,32 @@ const databaseService = {
       if (updates.isBlocked !== undefined) dbUpdates.is_blocked = updates.isBlocked;
       if (updates.blockedReason !== undefined) dbUpdates.blocked_reason = updates.blockedReason;
 
+      console.log('🔵 Mapped DB updates:', dbUpdates);
+
       const { data, error } = await supabase
         .from('tasks')
         .update(dbUpdates)
         .eq('id', id)
-        .select()
-        .single();
+        .select();
       
-      if (error) throw error;
+      console.log('🔵 Update response:', { data, error });
+      
+      if (error) {
+        console.error('❌ Update error:', error);
+        throw error;
+      }
+      
+      if (!data || data.length === 0) {
+        console.error('❌ No task found with ID:', id);
+        throw new Error(`Task with ID ${id} not found or update failed`);
+      }
+      
       // Convert snake_case back to camelCase
-      return dbToTask(data);
+      const result = dbToTask(data[0]);
+      console.log('✅ Task updated successfully:', result);
+      return result;
     } catch (error) {
-      console.error('Error updating task:', error);
+      console.error('❌ Error updating task:', error);
       throw error;
     }
   },
