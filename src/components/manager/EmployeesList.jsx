@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Users, Search, TrendingUp, CheckCircle, Clock, AlertCircle, BarChart3 } from 'lucide-react';
 import Header from '../common/Header';
 import { LayoutDashboard, ListTodo, Users as UsersIcon } from 'lucide-react';
-import { storage } from '../../utils/storage';
+import { db } from '../../services/databaseService';
 import { useTasks } from '../../hooks/useTasks';
 import { calculatePerformanceMetrics } from '../../utils/helpers';
 import { useNavigate } from 'react-router-dom';
@@ -21,9 +21,17 @@ const EmployeesList = () => {
   ];
 
   useEffect(() => {
-    const allUsers = storage.getUsers();
-    const employeeList = allUsers.filter(u => u.role === 'employee');
-    setEmployees(employeeList);
+    const loadEmployees = async () => {
+      try {
+        const allUsers = await db.getUsers();
+        const employeeList = allUsers.filter(u => u.role === 'employee');
+        setEmployees(employeeList);
+      } catch (error) {
+        console.error('Error loading employees:', error);
+        setEmployees([]);
+      }
+    };
+    loadEmployees();
   }, []);
 
   const getEmployeeTasks = (employeeId) => {

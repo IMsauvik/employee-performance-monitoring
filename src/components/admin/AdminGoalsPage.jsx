@@ -3,7 +3,7 @@ import { LayoutDashboard, Users, Shield, Target, Plus, Filter, Search, Calendar,
 import Header from '../common/Header';
 import { useAuth } from '../../context/AuthContext';
 import { useGoals } from '../../hooks/useGoals';
-import { storage } from '../../utils/storage';
+import { db } from '../../services/databaseService';
 import { goalCategories, goalCycles } from '../../data/goalsData';
 
 const AdminGoalsPage = () => {
@@ -35,14 +35,15 @@ const AdminGoalsPage = () => {
   ];
 
   useEffect(() => {
-    const fetchEmployees = () => {
+    const fetchEmployees = async () => {
       try {
-        const allUsers = storage.getUsers() || [];
+        const allUsers = await db.getUsers() || [];
         const employeesList = allUsers.filter(user => user.role === 'employee');
         setEmployees(employeesList);
         setLoading(false);
       } catch (error) {
         console.error('Error loading employees:', error);
+        setEmployees([]);
         setLoading(false);
       }
     };

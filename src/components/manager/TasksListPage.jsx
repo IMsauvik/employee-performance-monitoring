@@ -3,7 +3,7 @@ import { LayoutDashboard, ListTodo, Users as UsersIcon, Plus, BarChart3 } from '
 import Header from '../common/Header';
 import { useAuth } from '../../context/AuthContext';
 import { useTasks } from '../../hooks/useTasks';
-import { storage } from '../../utils/storage';
+import { db } from '../../services/databaseService';
 import TasksTable from './TasksTable';
 import AssignTaskModal from './AssignTaskModal';
 import LoadingSpinner from '../common/LoadingSpinner';
@@ -34,12 +34,16 @@ const TasksListPage = () => {
   useEffect(() => {
     const loadData = async () => {
       setLoading(true);
-      // Simulate loading delay for better UX
-      await new Promise(resolve => setTimeout(resolve, 500));
-      const allUsers = storage.getUsers();
-      const employeeList = allUsers.filter(u => u.role === 'employee');
-      setEmployees(employeeList);
-      setLoading(false);
+      try {
+        const allUsers = await db.getUsers();
+        const employeeList = allUsers.filter(u => u.role === 'employee');
+        setEmployees(employeeList);
+      } catch (error) {
+        console.error('Error loading employees:', error);
+        setEmployees([]);
+      } finally {
+        setLoading(false);
+      }
     };
     loadData();
   }, []);

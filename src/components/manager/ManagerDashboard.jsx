@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import Header from '../common/Header';
 import { useAuth } from '../../context/AuthContext';
 import { useTasks } from '../../hooks/useTasks';
-import { storage } from '../../utils/storage';
+import { db } from '../../services/databaseService';
 import { calculatePerformanceMetrics, formatDate } from '../../utils/helpers';
 import { TASK_STATUS } from '../../utils/taskConstants';
 
@@ -30,9 +30,17 @@ const ManagerDashboard = () => {
   ];
 
   useEffect(() => {
-    const allUsers = storage.getUsers();
-    const employeeList = allUsers.filter(u => u && u.role === 'employee' && u.id && u.name);
-    setEmployees(employeeList);
+    const loadEmployees = async () => {
+      try {
+        const allUsers = await db.getUsers();
+        const employeeList = allUsers.filter(u => u && u.role === 'employee' && u.id && u.name);
+        setEmployees(employeeList);
+      } catch (error) {
+        console.error('Error loading employees:', error);
+        setEmployees([]);
+      }
+    };
+    loadEmployees();
   }, []);
 
   useEffect(() => {

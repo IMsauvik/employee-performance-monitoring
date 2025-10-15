@@ -4,7 +4,7 @@ import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, L
 import Header from '../common/Header';
 import { useAuth } from '../../context/AuthContext';
 import { useTasks } from '../../hooks/useTasks';
-import { storage } from '../../utils/storage';
+import { db } from '../../services/databaseService';
 import { calculateAdvancedMetrics, calculateTeamMetrics, getPerformanceGrade, getDateRangePresets } from '../../utils/performanceMetrics';
 
 const TeamAnalytics = () => {
@@ -26,16 +26,20 @@ const TeamAnalytics = () => {
   ];
 
   useEffect(() => {
-    try {
-      const allUsers = storage.getUsers() || [];
-      const employeeList = allUsers.filter(u => u.role === 'employee');
-      setEmployees(employeeList);
-      setLoading(false);
-    } catch (error) {
-      console.error('Error loading employees:', error);
-      setError('Failed to load employee data');
-      setLoading(false);
-    }
+    const loadEmployees = async () => {
+      try {
+        const allUsers = await db.getUsers() || [];
+        const employeeList = allUsers.filter(u => u.role === 'employee');
+        setEmployees(employeeList);
+        setLoading(false);
+      } catch (error) {
+        console.error('Error loading employees:', error);
+        setError('Failed to load employee data');
+        setEmployees([]);
+        setLoading(false);
+      }
+    };
+    loadEmployees();
   }, []);
 
   // Get date range

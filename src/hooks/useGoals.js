@@ -1,71 +1,29 @@
 import { useState, useEffect } from 'react';
-import { initializeGoalsData } from '../data/goalsData';
+import { db } from '../services/databaseService';
 
 export const useGoals = (userId = null, role = null) => {
   const [goals, setGoals] = useState([]);
 
   useEffect(() => {
-    try {
-      if (!localStorage.getItem('goals')) {
-        initializeGoalsData();
-      }
-      if (userId && role) {
-        loadGoals();
-      }
-    } catch (error) {
-      console.error('Error in useGoals effect:', error);
-      setGoals([]);
+    if (userId && role) {
+      loadGoals();
     }
   }, [userId, role]);
 
-  const loadGoals = () => {
+  const loadGoals = async () => {
     try {
-      const storedGoals = localStorage.getItem('goals');
-      const allGoals = storedGoals ? JSON.parse(storedGoals) : [];
-
-      let filteredGoals = allGoals;
-
-      // Filter based on user role and ID
-      if (userId && role === 'employee') {
-        filteredGoals = allGoals.filter(
-          goal => goal.assignedTo.includes(userId) || goal.owner === userId
-        );
-      } else if (userId && role === 'manager') {
-        // Managers should see all team and company goals, plus their own
-        filteredGoals = allGoals.filter(
-          goal =>
-            goal.owner === userId ||
-            goal.assignedTo.includes(userId) ||
-            goal.level === 'team' ||
-            goal.level === 'company' ||
-            (goal.owner && goal.owner.toString().startsWith('emp-')) // Show goals owned by employees
-        );
-      }
-      // Admin sees all goals
-
-      setGoals(filteredGoals);
+      const allGoals = await db.getGoals(userId, role);
+      setGoals(allGoals);
     } catch (error) {
       console.error('Error loading goals:', error);
       setGoals([]);
     }
   };
 
-  const addGoal = (goalData) => {
+  const addGoal = async (goalData) => {
     try {
-      const storedGoals = localStorage.getItem('goals');
-      const allGoals = storedGoals ? JSON.parse(storedGoals) : [];
-
-      const newGoal = {
-        ...goalData,
-        id: `goal-${Date.now()}`,
-        createdAt: new Date().toISOString(),
-        checkIns: [],
-        progress: 0
-      };
-
-      allGoals.push(newGoal);
-      localStorage.setItem('goals', JSON.stringify(allGoals));
-      loadGoals();
+      const newGoal = await db.createGoal(goalData);
+      await loadGoals();
       return newGoal;
     } catch (error) {
       console.error('Error adding goal:', error);
@@ -73,19 +31,10 @@ export const useGoals = (userId = null, role = null) => {
     }
   };
 
-  const updateGoal = (goalId, updates) => {
+  const updateGoal = async (goalId, updates) => {
     try {
-      const storedGoals = localStorage.getItem('goals');
-      const allGoals = storedGoals ? JSON.parse(storedGoals) : [];
-
-      const updatedGoals = allGoals.map(goal =>
-        goal.id === goalId
-          ? { ...goal, ...updates, updatedAt: new Date().toISOString() }
-          : goal
-      );
-
-      localStorage.setItem('goals', JSON.stringify(updatedGoals));
-      loadGoals();
+      await db.updateGoal(goalId, updates);
+      await loadGoals();
       return true;
     } catch (error) {
       console.error('Error updating goal:', error);
@@ -93,15 +42,10 @@ export const useGoals = (userId = null, role = null) => {
     }
   };
 
-  const deleteGoal = (goalId) => {
+  const deleteGoal = async (goalId) => {
     try {
-      const storedGoals = localStorage.getItem('goals');
-      const allGoals = storedGoals ? JSON.parse(storedGoals) : [];
-
-      const filteredGoals = allGoals.filter(goal => goal.id !== goalId);
-
-      localStorage.setItem('goals', JSON.stringify(filteredGoals));
-      loadGoals();
+      await db.deleteGoal(goalId);
+      await loadGoals();
       return true;
     } catch (error) {
       console.error('Error deleting goal:', error);
@@ -109,31 +53,10 @@ export const useGoals = (userId = null, role = null) => {
     }
   };
 
-  const addCheckIn = (goalId, checkInData) => {
+  const addCheckIn = async (goalId, checkInData) => {
     try {
-      const storedGoals = localStorage.getItem('goals');
-      const allGoals = storedGoals ? JSON.parse(storedGoals) : [];
-
-      const updatedGoals = allGoals.map(goal => {
-        if (goal.id === goalId) {
-          const newCheckIn = {
-            ...checkInData,
-            id: `checkin-${Date.now()}`,
-            date: new Date().toISOString()
-          };
-
-          return {
-            ...goal,
-            checkIns: [...(goal.checkIns || []), newCheckIn],
-            progress: checkInData.progress,
-            updatedAt: new Date().toISOString()
-          };
-        }
-        return goal;
-      });
-
-      localStorage.setItem('goals', JSON.stringify(updatedGoals));
-      loadGoals();
+      await db.addGoalCheckIn(goalId, checkInData);
+      await loadGoals();
       return true;
     } catch (error) {
       console.error('Error adding check-in:', error);

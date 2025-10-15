@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { storage } from '../utils/storage';
+import { db } from '../services/databaseService';
 import { eventBus } from '../utils/eventBus';
 
 export const useTaskComments = (taskId) => {
@@ -9,7 +9,7 @@ export const useTaskComments = (taskId) => {
   const [onlineUsers, setOnlineUsers] = useState(new Set());
   const [error, setError] = useState(null);
 
-  const loadComments = useCallback(() => {
+  const loadComments = useCallback(async () => {
     if (!taskId) {
       setComments([]);
       setLoading(false);
@@ -17,7 +17,7 @@ export const useTaskComments = (taskId) => {
     }
 
     try {
-      const allComments = storage.getTaskComments(taskId);
+      const allComments = await db.getTaskComments(taskId);
       // Filter out any invalid comments
       const validComments = (allComments || []).filter(c => c && c.id && (c.text || c.content));
       setComments(validComments);
@@ -85,7 +85,7 @@ export const useTaskComments = (taskId) => {
     };
   }, [taskId, loadComments]);
 
-  const addComment = (commentData) => {
+  const addComment = async (commentData) => {
     const newComment = {
       id: `comment-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       taskId,
@@ -101,15 +101,15 @@ export const useTaskComments = (taskId) => {
       editedAt: null
     };
 
-    storage.addTaskComment(newComment);
+    await db.addTaskComment(newComment);
     loadComments();
     // Notify all subscribers about the new comment
     eventBus.publish(`taskComments:${taskId}`, { type: 'add', comment: newComment });
 
     // Create notifications for mentioned users
     if (newComment.mentions && newComment.mentions.length > 0) {
-      newComment.mentions.forEach(userId => {
-        storage.addNotification({
+      for (const userId of newComment.mentions) {
+        await db.createNotification({
           id: `notif-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
           userId,
           type: 'mention',
@@ -119,12 +119,12 @@ export const useTaskComments = (taskId) => {
           read: false,
           createdAt: new Date().toISOString()
         });
-      });
+      }
     }
 
     // Create notification for blocker
     if (newComment.type === 'blocker' && commentData.notifyUserId) {
-      storage.addNotification({
+      await db.createNotification({
         id: `notif-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         userId: commentData.notifyUserId,
         type: 'blocker',
@@ -139,19 +139,19 @@ export const useTaskComments = (taskId) => {
     return newComment;
   };
 
-  const updateComment = (commentId, updates) => {
+  const updateComment = async (commentId, updates) => {
     const updatedComment = {
       ...updates,
       edited: true,
       editedAt: new Date().toISOString()
     };
-    storage.updateTaskComment(commentId, updatedComment);
+    await db.updateTaskComment(commentId, updatedComment);
     loadComments();
     eventBus.publish(`taskComments:${taskId}`, { type: 'update', comment: updatedComment });
   };
 
-  const deleteComment = (commentId) => {
-    storage.deleteTaskComment(commentId);
+  const deleteComment = async (commentId) => {
+    await db.deleteTaskComment(commentId);
     loadComments();
     eventBus.publish(`taskComments:${taskId}`, { type: 'delete', commentId });
   };
@@ -160,8 +160,8 @@ export const useTaskComments = (taskId) => {
     return comments.find(c => c.id === commentId);
   };
 
-  const refreshComments = () => {
-    loadComments();
+  const refreshComments = async () => {
+    await loadComments();
   };
 
   // Typing indicator handler
@@ -219,8 +219,8 @@ export const useNotifications = (userId) => {
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
 
-  const loadNotifications = () => {
-    const allNotifications = storage.getNotifications(userId);
+  const loadNotifications = async () => {
+    const allNotifications = await db.getNotifications(userId);
     setNotifications(allNotifications);
     setUnreadCount(allNotifications.filter(n => !n.read).length);
   };
@@ -229,22 +229,22 @@ export const useNotifications = (userId) => {
     loadNotifications();
   }, [userId]);
 
-  const markAsRead = (notificationId) => {
-    storage.markNotificationAsRead(notificationId);
+  const markAsRead = async (notificationId) => {
+    await db.markNotificationAsRead(notificationId);
     loadNotifications();
   };
 
-  const markAllAsRead = () => {
-    notifications.forEach(n => {
+  const markAllAsRead = async () => {
+    for (const n of notifications) {
       if (!n.read) {
-        storage.markNotificationAsRead(n.id);
+        await db.markNotificationAsRead(n.id);
       }
-    });
+    }
     loadNotifications();
   };
 
-  const deleteNotification = (notificationId) => {
-    storage.deleteNotification(notificationId);
+  const deleteNotification = async (notificationId) => {
+    await db.deleteNotification(notificationId);
     loadNotifications();
   };
 

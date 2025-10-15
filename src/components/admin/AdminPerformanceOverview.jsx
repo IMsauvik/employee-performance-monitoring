@@ -4,7 +4,7 @@ import { LineChart, Line, BarChart, Bar, PieChart as RechartsPie, Pie, Cell, XAx
 import Header from '../common/Header';
 import { useAuth } from '../../context/AuthContext';
 import { useTasks } from '../../hooks/useTasks';
-import { storage } from '../../utils/storage';
+import { db } from '../../services/databaseService';
 import { calculateAdvancedMetrics, calculateTeamMetrics, getPerformanceGrade, getDateRangePresets } from '../../utils/performanceMetrics';
 
 const AdminPerformanceOverview = () => {
@@ -24,8 +24,16 @@ const AdminPerformanceOverview = () => {
   ];
 
   useEffect(() => {
-    const allUsers = storage.getUsers();
-    setUsers(allUsers);
+    const loadUsers = async () => {
+      try {
+        const allUsers = await db.getUsers();
+        setUsers(allUsers);
+      } catch (error) {
+        console.error('Error loading users:', error);
+        setUsers([]);
+      }
+    };
+    loadUsers();
   }, []);
 
   // Get date range

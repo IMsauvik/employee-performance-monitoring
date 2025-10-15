@@ -4,7 +4,7 @@ import { LineChart, Line, BarChart, Bar, PieChart as RechartsPie, Pie, Cell, Are
 import Header from '../common/Header';
 import { useAuth } from '../../context/AuthContext';
 import { useTasks } from '../../hooks/useTasks';
-import { storage } from '../../utils/storage';
+import { db } from '../../services/databaseService';
 import { calculatePerformanceMetrics } from '../../utils/helpers';
 
 const AnalyticsDashboard = () => {
@@ -21,8 +21,16 @@ const AnalyticsDashboard = () => {
   ];
 
   useEffect(() => {
-    const allUsers = storage.getUsers();
-    setUsers(allUsers);
+    const loadUsers = async () => {
+      try {
+        const allUsers = await db.getUsers();
+        setUsers(allUsers);
+      } catch (error) {
+        console.error('Error loading users:', error);
+        setUsers([]);
+      }
+    };
+    loadUsers();
   }, []);
 
   // Performance Trend Data (Last 6 months)
