@@ -22,6 +22,11 @@ server/.env
 server/.env.local
 server/.env.*.local
 
+# Deployment credentials
+DEPLOYMENT_CREDENTIALS.txt
+*CREDENTIALS*
+*.credentials
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
