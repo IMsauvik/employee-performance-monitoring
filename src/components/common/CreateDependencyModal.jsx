@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { X, Plus, Trash2, Users, Calendar, FileText, AlertCircle } from 'lucide-react';
-import { storage } from '../../utils/storage';
+import { db } from '../../services/databaseService';
 import { DEPENDENCY_STATUS } from '../../utils/taskConstants';
 import toast from 'react-hot-toast';
 
@@ -17,13 +17,21 @@ const CreateDependencyModal = ({ parentTask, blocker, onClose, onDependenciesCre
 
   useEffect(() => {
     // Get all users except the parent task assignee (they're already blocked)
-    const allUsers = storage.getUsers();
-    const filtered = allUsers.filter(u =>
-      u.id !== parentTask.assignedTo &&
-      u.role !== 'admin' &&
-      u.isActive !== false
-    );
-    setAvailableUsers(filtered);
+    const loadUsers = async () => {
+      try {
+        const allUsers = await db.getUsers();
+        const filtered = allUsers.filter(u =>
+          u.id !== parentTask.assignedTo &&
+          u.role !== 'admin' &&
+          u.isActive !== false
+        );
+        setAvailableUsers(filtered);
+      } catch (error) {
+        console.error('Error loading users:', error);
+        setAvailableUsers([]);
+      }
+    };
+    loadUsers();
 
     // Pre-populate with mentioned users if available
     if (blocker && blocker.mentions && blocker.mentions.length > 0) {
@@ -86,16 +94,16 @@ const CreateDependencyModal = ({ parentTask, blocker, onClose, onDependenciesCre
     return true;
   };
 
-  const handleCreate = () => {
+  const handleCreate = async () => {
     if (!validateDependencies()) return;
 
     try {
       const now = new Date().toISOString();
       const createdDependencies = [];
 
-      dependencies.forEach((dep, index) => {
+      for (const [index, dep] of dependencies.entries()) {
         // CRITICAL: Validate assigned user exists and has required fields
-        const assignedUser = storage.getUserById(dep.assignedTo);
+        const assignedUser = await db.getUserById(dep.assignedTo);
         if (!assignedUser || !assignedUser.name || !assignedUser.email) {
           console.error('Invalid assigned user:', dep.assignedTo, assignedUser);
           toast.error(`Cannot assign to invalid user. Please refresh and try again.`);
@@ -143,11 +151,11 @@ const CreateDependencyModal = ({ parentTask, blocker, onClose, onDependenciesCre
           }]
         };
 
-        storage.addDependencyTask(dependencyTask);
+        await db.createDependencyTask(dependencyTask);
         createdDependencies.push(dependencyTask);
 
         // Notify assigned user
-        storage.addNotification({
+        await db.createNotification({
           id: `notif-${Date.now()}-${index}`,
           userId: dep.assignedTo,
           taskId: dependencyTask.id,
@@ -156,12 +164,11 @@ const CreateDependencyModal = ({ parentTask, blocker, onClose, onDependenciesCre
           read: false,
           createdAt: now
         });
-      });
+      }
 
       // Update parent task's blocker with dependency task IDs
       if (blocker) {
-        const tasks = storage.getTasks();
-        const parentTaskData = tasks.find(t => t.id === parentTask.id);
+        const parentTaskData = await db.getTaskById(parentTask.id);
         if (parentTaskData && parentTaskData.blockerHistory) {
           const updatedBlockerHistory = parentTaskData.blockerHistory.map(b => {
             if (b.id === blocker.id) {
@@ -175,7 +182,7 @@ const CreateDependencyModal = ({ parentTask, blocker, onClose, onDependenciesCre
             return b;
           });
 
-          storage.updateTask(parentTask.id, {
+          await db.updateTask(parentTask.id, {
             blockerHistory: updatedBlockerHistory,
             activityTimeline: [
               ...(parentTaskData.activityTimeline || []),

@@ -412,6 +412,37 @@ export const db = {
     }
   },
 
+  async createNotification(notificationData) {
+    try {
+      const { data, error } = await supabase
+        .from('notifications')
+        .insert([notificationData])
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Error creating notification:', error);
+      throw error;
+    }
+  },
+
+  async deleteNotification(id) {
+    try {
+      const { error } = await supabase
+        .from('notifications')
+        .delete()
+        .eq('id', id);
+      
+      if (error) throw error;
+      return true;
+    } catch (error) {
+      console.error('Error deleting notification:', error);
+      return false;
+    }
+  },
+
   // ==================== TASK COMMENTS ====================
   
   async getTaskComments(taskId) {
@@ -446,6 +477,38 @@ export const db = {
     }
   },
 
+  async updateTaskComment(commentId, updates) {
+    try {
+      const { data, error } = await supabase
+        .from('task_comments')
+        .update(updates)
+        .eq('id', commentId)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Error updating comment:', error);
+      throw error;
+    }
+  },
+
+  async deleteTaskComment(commentId) {
+    try {
+      const { error } = await supabase
+        .from('task_comments')
+        .delete()
+        .eq('id', commentId);
+      
+      if (error) throw error;
+      return true;
+    } catch (error) {
+      console.error('Error deleting comment:', error);
+      return false;
+    }
+  },
+
   // ==================== TASK DEPENDENCIES ====================
   
   async getDependencyTask(dependencyId) {
@@ -464,6 +527,22 @@ export const db = {
     }
   },
 
+  async createDependencyTask(dependencyData) {
+    try {
+      const { data, error } = await supabase
+        .from('task_dependencies')
+        .insert([dependencyData])
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Error creating dependency task:', error);
+      throw error;
+    }
+  },
+
   async updateDependencyTask(dependencyId, updates) {
     try {
       const { data, error} = await supabase
@@ -478,6 +557,37 @@ export const db = {
     } catch (error) {
       console.error('Error updating dependency task:', error);
       throw error;
+    }
+  },
+
+  async deleteDependencyTask(dependencyId) {
+    try {
+      const { error } = await supabase
+        .from('task_dependencies')
+        .delete()
+        .eq('id', dependencyId);
+      
+      if (error) throw error;
+      return true;
+    } catch (error) {
+      console.error('Error deleting dependency task:', error);
+      return false;
+    }
+  },
+
+  async getDependenciesForTask(taskId) {
+    try {
+      const { data, error } = await supabase
+        .from('task_dependencies')
+        .select('*')
+        .eq('parent_task_id', taskId)
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Error fetching dependencies for task:', error);
+      return [];
     }
   },
 };
