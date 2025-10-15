@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useTaskComments } from '../../hooks/useTaskComments';
+import { db } from '../../services/databaseService';
 import { storage } from '../../utils/storage';
 import { formatDistanceToNow } from 'date-fns';
 import { toast } from 'react-hot-toast';
@@ -54,10 +55,13 @@ const TaskCommentsModal = ({ task, isOpen, onClose }) => {
 
   // Load users
   useEffect(() => {
-    if (isOpen) {
-      const users = storage.getUsers();
-      setAllUsers(users);
-    }
+    const loadUsers = async () => {
+      if (isOpen) {
+        const users = await db.getUsers();
+        setAllUsers(users || []);
+      }
+    };
+    loadUsers();
   }, [isOpen]);
 
   // Handle text change with typing indicator and mention detection
@@ -118,7 +122,7 @@ const TaskCommentsModal = ({ task, isOpen, onClose }) => {
   ).slice(0, 5);
 
   // Send comment
-  const handleSendComment = () => {
+  const handleSendComment = async () => {
     if (!commentText.trim() || !isOnline) return;
 
     // Check if comment mentions a blocker
@@ -138,7 +142,7 @@ const TaskCommentsModal = ({ task, isOpen, onClose }) => {
     if (newComment) {
       // Add activity to task timeline if it's a blocker mention
       if (isBlockerComment && mentionedUsers.length > 0) {
-        const taskToUpdate = storage.getTaskById(task.id);
+        const taskToUpdate = await db.getTaskById(task.id);
         if (taskToUpdate) {
           const now = new Date().toISOString();
           const activity = {
@@ -156,16 +160,15 @@ const TaskCommentsModal = ({ task, isOpen, onClose }) => {
           };
 
           const updatedTimeline = [...(taskToUpdate.activityTimeline || []), activity];
-          storage.updateTask(task.id, { activityTimeline: updatedTimeline });
+          await db.updateTask(task.id, { activityTimeline: updatedTimeline });
         }
       }
 
       // Send notifications to mentioned users
       if (mentionedUsers.length > 0) {
         const now = new Date().toISOString();
-        mentionedUsers.forEach(userId => {
-          storage.addNotification({
-            id: `notification-${Date.now()}-${userId}`,
+        for (const userId of mentionedUsers) {
+          await db.createNotification({
             userId: userId,
             type: isBlockerComment ? 'blocker_mention' : 'task_mention',
             taskId: task.id,
@@ -181,7 +184,7 @@ const TaskCommentsModal = ({ task, isOpen, onClose }) => {
               isBlocker: isBlockerComment
             }
           });
-        });
+        }
         toast.success(isBlockerComment 
           ? `Blocker reported and ${mentionedUsers.length} ${mentionedUsers.length === 1 ? 'person' : 'people'} notified`
           : `Comment added and ${mentionedUsers.length} ${mentionedUsers.length === 1 ? 'person' : 'people'} notified`
