@@ -1,53 +1,75 @@
-# 🔴 BLOCKING ISSUE: Row-Level Security Must Be Disabled
+# � NEW ISSUE: Missing Database Columns
 
-## Current Status
-
-Your app is **deployed and working**, but **database writes are blocked** by Supabase RLS.
-
-### Error You're Seeing:
+## ⚠️ Current Error
 
 ```
-Error: new row violates row-level security policy for table "tasks"
-TypeError: Cannot read properties of undefined (reading 'id')
+PGRST204 - Could not find the 'manager_feedback' column of 'tasks' in the schema cache
+400 Bad Request
 ```
 
-### What's Happening:
+## 🔍 What This Means
 
-1. You try to create a task
-2. Supabase RLS blocks it (returns error)
-3. App tries to use `createdTask.id` but `createdTask` is undefined
-4. You now see a better error message: **"Database security blocking task creation"**
+Your code references database columns that don't exist yet. The app is trying to save data to columns that haven't been created.
 
 ---
 
-## ✅ THE FIX (Required - Takes 2 Minutes)
+## ✅ QUICK FIX (Takes 3 Minutes)
 
-### Step-by-Step Instructions:
+### STEP 1: Go to Supabase SQL Editor
 
-#### 1. Open Supabase Dashboard
+1. Open: https://supabase.com/dashboard
+2. Click your project: **uhirxcymsllamaomjnox**
+3. Left sidebar → **SQL Editor**
+4. Click **[+ New query]**
 
-- Go to: https://supabase.com/dashboard
-- Login with your account
-- Select project: **uhirxcymsllamaomjnox**
+### STEP 2: Run This SQL
 
-#### 2. Navigate to SQL Editor
-
-- Click **"SQL Editor"** in the left sidebar
-- Click **"New Query"** button
-
-#### 3. Copy This SQL
+Copy and paste this entire block, then click RUN:
 
 ```sql
--- Disable Row-Level Security on all tables
-ALTER TABLE users DISABLE ROW LEVEL SECURITY;
-ALTER TABLE tasks DISABLE ROW LEVEL SECURITY;
-ALTER TABLE task_progress_notes DISABLE ROW LEVEL SECURITY;
-ALTER TABLE task_comments DISABLE ROW LEVEL SECURITY;
-ALTER TABLE task_dependencies DISABLE ROW LEVEL SECURITY;
-ALTER TABLE goals DISABLE ROW LEVEL SECURITY;
-ALTER TABLE activity_log DISABLE ROW LEVEL SECURITY;
-ALTER TABLE notifications DISABLE ROW LEVEL SECURITY;
-ALTER TABLE app_settings DISABLE ROW LEVEL SECURITY;
+-- Add missing columns to tasks table
+ALTER TABLE tasks
+ADD COLUMN IF NOT EXISTS manager_feedback TEXT,
+ADD COLUMN IF NOT EXISTS feedback_history JSONB DEFAULT '[]'::jsonb,
+ADD COLUMN IF NOT EXISTS progress_percentage INTEGER DEFAULT 0,
+ADD COLUMN IF NOT EXISTS progress_notes JSONB DEFAULT '[]'::jsonb,
+ADD COLUMN IF NOT EXISTS activity_timeline JSONB DEFAULT '[]'::jsonb,
+ADD COLUMN IF NOT EXISTS blocker_history JSONB DEFAULT '[]'::jsonb,
+ADD COLUMN IF NOT EXISTS dependency_tasks JSONB DEFAULT '[]'::jsonb,
+ADD COLUMN IF NOT EXISTS comments JSONB DEFAULT '[]'::jsonb,
+ADD COLUMN IF NOT EXISTS reactions JSONB DEFAULT '{}'::jsonb,
+ADD COLUMN IF NOT EXISTS is_blocked BOOLEAN DEFAULT FALSE,
+ADD COLUMN IF NOT EXISTS blocked_reason TEXT;
+
+-- Verify (should show 11 rows)
+SELECT column_name FROM information_schema.columns
+WHERE table_name = 'tasks'
+AND column_name IN ('manager_feedback', 'feedback_history', 'progress_percentage');
+```
+
+### STEP 3: Test Your App
+
+1. **Hard refresh browser:** Ctrl+Shift+R (Windows) or Cmd+Shift+R (Mac)
+2. **Try creating a task** → Should work now ✅
+3. **Try adding manager feedback** → Should work now ✅
+
+---
+
+## 📚 Detailed Guides Created
+
+Check these files for more information:
+
+- **`database/add-missing-columns.sql`** - SQL file ready to run
+- **`ADD_COLUMNS_GUIDE.md`** - Detailed explanation
+- **`VISUAL_COLUMN_GUIDE.md`** - Step-by-step with screenshots
+
+---
+
+## 🔴 PREVIOUS ISSUE (Already Fixed)
+
+### Row-Level Security Was Disabled ✅
+
+The RLS issue has been resolved. Your database now allows writes.
 ALTER TABLE performance_metrics DISABLE ROW LEVEL SECURITY;
 
 -- Optional: Drop the policies to clean up
@@ -62,7 +84,8 @@ DROP POLICY IF EXISTS "Users can view comments" ON task_comments;
 DROP POLICY IF EXISTS "Users can create comments" ON task_comments;
 DROP POLICY IF EXISTS "Users can update own comments" ON task_comments;
 DROP POLICY IF EXISTS "Users can delete own comments" ON task_comments;
-```
+
+````
 
 #### 4. Run the Query
 
@@ -77,7 +100,7 @@ SELECT tablename, rowsecurity
 FROM pg_tables
 WHERE schemaname = 'public'
 AND tablename IN ('tasks', 'notifications', 'users');
-```
+````
 
 **Expected result**: All tables should show `rowsecurity = false`
 
