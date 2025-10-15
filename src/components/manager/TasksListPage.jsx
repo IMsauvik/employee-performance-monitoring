@@ -61,12 +61,13 @@ const TasksListPage = () => {
 
   const handleAssignTask = async (taskData) => {
     try {
-      await addTask(taskData);
+      const createdTask = await addTask(taskData);
       setShowAssignModal(false);
       await refreshTasks();
+      return createdTask; // Return the created task so AssignTaskModal can use the ID
     } catch (error) {
       console.error('Error assigning task:', error);
-      // You can add toast notification here if needed
+      throw error; // Re-throw so AssignTaskModal can handle it
     }
   };
 
