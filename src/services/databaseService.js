@@ -445,6 +445,41 @@ export const db = {
       throw error;
     }
   },
+
+  // ==================== TASK DEPENDENCIES ====================
+  
+  async getDependencyTask(dependencyId) {
+    try {
+      const { data, error } = await supabase
+        .from('task_dependencies')
+        .select('*')
+        .eq('id', dependencyId)
+        .single();
+      
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Error fetching dependency task:', error);
+      return null;
+    }
+  },
+
+  async updateDependencyTask(dependencyId, updates) {
+    try {
+      const { data, error} = await supabase
+        .from('task_dependencies')
+        .update(updates)
+        .eq('id', dependencyId)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Error updating dependency task:', error);
+      throw error;
+    }
+  },
 };
 
 export default db;

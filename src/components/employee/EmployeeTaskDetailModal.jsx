@@ -4,7 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { formatDate, formatDateTime, getStatusColor, getStatusText, getPriorityColor, getDaysRemaining, getQualityRatingInfo } from '../../utils/helpers';
 import { generateId } from '../../utils/helpers';
 import { TASK_STATUS, STATUS_FLOW, ACTIVITY_TYPE, DEPENDENCY_STATUS } from '../../utils/taskConstants';
-import { storage } from '../../utils/storage';
+import { db } from '../../services/databaseService';
 import NotificationService from '../../services/notificationService';
 import TaskCommentsModal from '../common/TaskCommentsModal';
 import TaskActivityTimeline from '../common/TaskActivityTimeline';
@@ -403,64 +403,69 @@ const EmployeeTaskDetailModal = ({ task, onClose, onUpdate }) => {
     setMentionedUsers([]);
   };
 
-  const handleAcceptDependency = (dependencyId) => {
-    const now = new Date().toISOString();
-    const dep = storage.getDependencyTask(dependencyId);
+  const handleAcceptDependency = async (dependencyId) => {
+    try {
+      const now = new Date().toISOString();
+      const dep = await db.getDependencyTask(dependencyId);
 
-    if (!dep) return;
+      if (!dep) return;
 
-    // Update dependency
-    storage.updateDependencyTask(dependencyId, {
-      acceptedBy: currentUser.id,
-      acceptedByName: currentUser.name,
-      acceptedAt: now,
-      status: 'accepted',
-      activityTimeline: [...(dep.activityTimeline || []), {
+      // Update dependency
+      await db.updateDependencyTask(dependencyId, {
+        acceptedBy: currentUser.id,
+        acceptedByName: currentUser.name,
+        acceptedAt: now,
+        status: 'accepted',
+        activityTimeline: [...(dep.activityTimeline || []), {
+          id: `activity-${Date.now()}`,
+          type: 'ACCEPTED',
+          title: 'Dependency Accepted',
+          description: `${currentUser.name} accepted this dependency task`,
+          timestamp: now,
+          userName: currentUser.name,
+          userId: currentUser.id
+        }]
+      });
+
+      // Add to parent task timeline
+      const parentActivity = {
         id: `activity-${Date.now()}`,
-        type: 'ACCEPTED',
-        title: 'Dependency Accepted',
-        description: `${currentUser.name} accepted this dependency task`,
+        type: 'DEPENDENCY_ACCEPTED',
+        title: 'Dependency Task Accepted',
+        description: `${currentUser.name} accepted dependency: "${dep.title}"`,
         timestamp: now,
         userName: currentUser.name,
-        userId: currentUser.id
-      }]
-    });
+        userId: currentUser.id,
+        metadata: {
+          dependencyId,
+          dependencyTitle: dep.title
+        }
+      };
 
-    // Add to parent task timeline
-    const parentActivity = {
-      id: `activity-${Date.now()}`,
-      type: 'DEPENDENCY_ACCEPTED',
-      title: 'Dependency Task Accepted',
-      description: `${currentUser.name} accepted dependency: "${dep.title}"`,
-      timestamp: now,
-      userName: currentUser.name,
-      userId: currentUser.id,
-      metadata: {
-        dependencyId,
-        dependencyTitle: dep.title
-      }
-    };
+      await db.updateTask(task.id, {
+        activityTimeline: [...(task.activityTimeline || []), parentActivity]
+      });
 
-    storage.updateTask(task.id, {
-      activityTimeline: [...(task.activityTimeline || []), parentActivity]
-    });
+      // Notify dependency assignee
+      await db.createNotification({
+        id: `notif-${Date.now()}`,
+        userId: dep.assignedTo,
+        taskId: dependencyId,
+        message: `${currentUser.name} accepted your dependency task: "${dep.title}"`,
+        type: 'dependency_accepted',
+        read: false,
+        createdAt: now
+      });
 
-    // Notify dependency assignee
-    storage.addNotification({
-      id: `notif-${Date.now()}`,
-      userId: dep.assignedTo,
-      taskId: dependencyId,
-      message: `${currentUser.name} accepted your dependency task: "${dep.title}"`,
-      type: 'dependency_accepted',
-      read: false,
-      createdAt: now
-    });
+      // Check if all dependencies are accepted
+      checkAndResolveBlocker();
 
-    // Check if all dependencies are accepted
-    checkAndResolveBlocker();
-
-    toast.success('Dependency accepted!');
-    onUpdate(task.id, {}); // Trigger refresh
+      toast.success('Dependency accepted!');
+      onUpdate(task.id, {}); // Trigger refresh
+    } catch (error) {
+      console.error('Error accepting dependency:', error);
+      toast.error('Failed to accept dependency');
+    }
   };
 
   const handleRejectDependency = (dependencyId) => {
@@ -468,75 +473,80 @@ const EmployeeTaskDetailModal = ({ task, onClose, onUpdate }) => {
     setShowRejectionModal(true);
   };
 
-  const confirmRejectDependency = () => {
+  const confirmRejectDependency = async () => {
     if (!rejectionReason.trim()) {
       toast.error('Please provide a reason for rejection');
       return;
     }
 
-    const now = new Date().toISOString();
-    const dep = storage.getDependencyTask(dependencyToReject);
+    try {
+      const now = new Date().toISOString();
+      const dep = await db.getDependencyTask(dependencyToReject);
 
-    if (!dep) return;
+      if (!dep) return;
 
-    // Update dependency - send back for rework
-    storage.updateDependencyTask(dependencyToReject, {
-      rejectedBy: currentUser.id,
-      rejectedByName: currentUser.name,
-      rejectedAt: now,
-      rejectionReason,
-      status: DEPENDENCY_STATUS.IN_PROGRESS, // Send back to in progress
-      submittedForReview: false,
-      activityTimeline: [...(dep.activityTimeline || []), {
+      // Update dependency - send back for rework
+      await db.updateDependencyTask(dependencyToReject, {
+        rejectedBy: currentUser.id,
+        rejectedByName: currentUser.name,
+        rejectedAt: now,
+        rejectionReason,
+        status: DEPENDENCY_STATUS.IN_PROGRESS, // Send back to in progress
+        submittedForReview: false,
+        activityTimeline: [...(dep.activityTimeline || []), {
+          id: `activity-${Date.now()}`,
+          type: 'REJECTED',
+          title: 'Dependency Rejected',
+          description: `${currentUser.name} rejected and sent for rework: "${rejectionReason}"`,
+          timestamp: now,
+          userName: currentUser.name,
+          userId: currentUser.id
+        }]
+      });
+
+      // Add to parent task timeline
+      const parentActivity = {
         id: `activity-${Date.now()}`,
-        type: 'REJECTED',
-        title: 'Dependency Rejected',
-        description: `${currentUser.name} rejected and sent for rework: "${rejectionReason}"`,
+        type: 'DEPENDENCY_REJECTED',
+        title: 'Dependency Task Rejected',
+        description: `${currentUser.name} rejected dependency: "${dep.title}" - Needs rework`,
         timestamp: now,
         userName: currentUser.name,
-        userId: currentUser.id
-      }]
-    });
+        userId: currentUser.id,
+        metadata: {
+          dependencyId: dependencyToReject,
+          dependencyTitle: dep.title,
+          reason: rejectionReason
+        }
+      };
 
-    // Add to parent task timeline
-    const parentActivity = {
-      id: `activity-${Date.now()}`,
-      type: 'DEPENDENCY_REJECTED',
-      title: 'Dependency Task Rejected',
-      description: `${currentUser.name} rejected dependency: "${dep.title}" - Needs rework`,
-      timestamp: now,
-      userName: currentUser.name,
-      userId: currentUser.id,
-      metadata: {
-        dependencyId: dependencyToReject,
-        dependencyTitle: dep.title,
-        reason: rejectionReason
-      }
-    };
+      await db.updateTask(task.id, {
+        activityTimeline: [...(task.activityTimeline || []), parentActivity]
+      });
 
-    storage.updateTask(task.id, {
-      activityTimeline: [...(task.activityTimeline || []), parentActivity]
-    });
+      // Notify dependency assignee
+      await db.createNotification({
+        id: `notif-${Date.now()}`,
+        userId: dep.assignedTo,
+        taskId: dependencyToReject,
+        message: `${currentUser.name} rejected your dependency task and requested rework: "${dep.title}"`,
+        type: 'dependency_rejected',
+        read: false,
+        createdAt: now
+      });
 
-    // Notify dependency assignee
-    storage.addNotification({
-      id: `notif-${Date.now()}`,
-      userId: dep.assignedTo,
-      taskId: dependencyToReject,
-      message: `${currentUser.name} rejected your dependency task and requested rework: "${dep.title}"`,
-      type: 'dependency_rejected',
-      read: false,
-      createdAt: now
-    });
-
-    toast.success('Dependency rejected. Assignee has been notified.');
-    setShowRejectionModal(false);
-    setRejectionReason('');
-    setDependencyToReject(null);
-    onUpdate(task.id, {}); // Trigger refresh
+      toast.success('Dependency rejected. Assignee has been notified.');
+      setShowRejectionModal(false);
+      setRejectionReason('');
+      setDependencyToReject(null);
+      onUpdate(task.id, {}); // Trigger refresh
+    } catch (error) {
+      console.error('Error rejecting dependency:', error);
+      toast.error('Failed to reject dependency');
+    }
   };
 
-  const checkAndResolveBlocker = () => {
+  const checkAndResolveBlocker = async () => {
     const deps = [];
     if (task.blockerHistory) {
       task.blockerHistory.forEach(blocker => {
@@ -547,10 +557,13 @@ const EmployeeTaskDetailModal = ({ task, onClose, onUpdate }) => {
     }
 
     // Check if all dependencies are accepted
-    const allAccepted = deps.every(depId => {
-      const dep = storage.getDependencyTask(depId);
+    const allAcceptedPromises = deps.map(async (depId) => {
+      const dep = await db.getDependencyTask(depId);
       return dep && dep.acceptedBy;
     });
+    
+    const allAcceptedResults = await Promise.all(allAcceptedPromises);
+    const allAccepted = allAcceptedResults.every(result => result);
 
     if (allAccepted && deps.length > 0) {
       const now = new Date().toISOString();
@@ -571,7 +584,7 @@ const EmployeeTaskDetailModal = ({ task, onClose, onUpdate }) => {
       });
 
       // Change task status back to IN_PROGRESS
-      storage.updateTask(task.id, {
+      await db.updateTask(task.id, {
         status: TASK_STATUS.IN_PROGRESS,
         blockerHistory: updatedBlockerHistory,
         activityTimeline: [...(task.activityTimeline || []), {
