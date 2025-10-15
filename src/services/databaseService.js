@@ -377,6 +377,8 @@ const databaseService = {
 
   async createTask(taskData) {
     try {
+      console.log('🔵 Creating task with data:', taskData);
+      
       // Map camelCase to snake_case for database
       // Don't send id - let database generate UUID
       const dbData = {
@@ -387,17 +389,19 @@ const databaseService = {
         project: taskData.project,
         vertical: taskData.vertical,
         priority: taskData.priority,
-        status: taskData.status,
+        status: taskData.status || 'pending',
         start_date: taskData.startDate,
         due_date: taskData.dueDate,
         completed_date: taskData.completedDate,
         estimated_hours: taskData.estimatedHours,
         actual_hours: taskData.actualHours,
-        tags: taskData.tags,
+        tags: taskData.tags || [],
         attachments: taskData.attachments || [],
-        created_at: taskData.createdAt,
-        updated_at: taskData.updatedAt
+        created_at: taskData.createdAt || new Date().toISOString(),
+        updated_at: taskData.updatedAt || new Date().toISOString()
       };
+
+      console.log('🔵 Mapped DB data:', dbData);
 
       const { data, error } = await supabase
         .from('tasks')
@@ -405,11 +409,24 @@ const databaseService = {
         .select()
         .single();
       
-      if (error) throw error;
+      console.log('🔵 Supabase response:', { data, error });
+      
+      if (error) {
+        console.error('❌ Supabase error:', error);
+        throw new Error(`Task creation failed: ${error.message}`);
+      }
+      
+      if (!data) {
+        console.error('❌ No data returned from Supabase');
+        throw new Error('Task creation failed - no task ID returned. This may be due to database permissions (RLS). Check console for details.');
+      }
+      
       // Convert snake_case back to camelCase
-      return dbToTask(data);
+      const result = dbToTask(data);
+      console.log('✅ Task created successfully:', result);
+      return result;
     } catch (error) {
-      console.error('Error creating task:', error);
+      console.error('❌ Error creating task:', error);
       throw error;
     }
   },
