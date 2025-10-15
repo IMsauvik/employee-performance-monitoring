@@ -9,6 +9,8 @@ import { calculatePerformanceMetrics, generateId } from '../../utils/helpers';
 import AddUserModal from './AddUserModal';
 import ExportMenu from '../common/ExportMenu';
 import { exportUsers } from '../../utils/exportUtils';
+import db from '../../services/databaseService';
+import toast from 'react-hot-toast';
 
 const AdminDashboard = () => {
   const { currentUser } = useAuth();
@@ -18,6 +20,7 @@ const AdminDashboard = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterRole, setFilterRole] = useState('all');
   const [showAddModal, setShowAddModal] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
     totalUsers: 0,
     managers: 0,
@@ -46,37 +49,50 @@ const AdminDashboard = () => {
     });
   }, [users, tasks]);
 
-  const loadUsers = () => {
-    const allUsers = storage.getUsers();
-    setUsers(allUsers);
+  const loadUsers = async () => {
+    try {
+      setLoading(true);
+      const allUsers = await db.getUsers();
+      setUsers(allUsers);
+    } catch (error) {
+      console.error('Error loading users:', error);
+      toast.error('Failed to load users');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleAddUser = (userData) => {
-    const newUser = {
-      ...userData,
-      id: generateId(),
-      avatar: null,
-      createdAt: new Date().toISOString()
-    };
-
-    const allUsers = storage.getUsers();
-    allUsers.push(newUser);
-    storage.setUsers(allUsers);
-    loadUsers();
-    setShowAddModal(false);
+  const handleAddUser = async (userData) => {
+    try {
+      const newUser = await db.createUser(userData);
+      toast.success(`User ${newUser.name} added successfully!`);
+      await loadUsers();
+      setShowAddModal(false);
+    } catch (error) {
+      console.error('Error adding user:', error);
+      if (error.message?.includes('duplicate key')) {
+        toast.error('A user with this email already exists');
+      } else {
+        toast.error('Failed to add user. Please try again.');
+      }
+    }
   };
 
-  const handleDeleteUser = (userId) => {
+  const handleDeleteUser = async (userId) => {
     if (userId === currentUser.id) {
-      alert('You cannot delete your own account!');
+      toast.error('You cannot delete your own account!');
       return;
     }
 
     if (window.confirm('Are you sure you want to delete this user? This action cannot be undone.')) {
-      const allUsers = storage.getUsers();
-      const filteredUsers = allUsers.filter(u => u.id !== userId);
-      storage.setUsers(filteredUsers);
-      loadUsers();
+      try {
+        await db.deleteUser(userId);
+        toast.success('User deleted successfully');
+        await loadUsers();
+      } catch (error) {
+        console.error('Error deleting user:', error);
+        toast.error('Failed to delete user');
+      }
     }
   };
 
