@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { storage } from '../utils/storage';
+import { db } from '../services/databaseService';
 import { eventBus } from '../utils/eventBus';
 
 export const useTaskDiscussion = (taskId) => {
@@ -8,11 +8,11 @@ export const useTaskDiscussion = (taskId) => {
   const [error, setError] = useState(null);
   const [typingUsers, setTypingUsers] = useState([]);
 
-  const loadComments = useCallback(() => {
+  const loadComments = useCallback(async () => {
     try {
       setLoading(true);
-      const taskComments = storage.getTaskComments(taskId) || [];
-      setComments(taskComments);
+      const taskComments = await db.getTaskComments(taskId);
+      setComments(taskComments || []);
       setError(null);
     } catch (err) {
       console.error('Error loading comments:', err);
@@ -22,87 +22,86 @@ export const useTaskDiscussion = (taskId) => {
     }
   }, [taskId]);
 
-  const addComment = useCallback((commentData) => {
+  const addComment = useCallback(async (commentData) => {
     try {
       const newComment = {
-        id: `comment-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         taskId,
-        text: commentData.text,
-        authorId: commentData.authorId,
-        authorName: commentData.authorName,
-        authorRole: commentData.authorRole,
-        type: commentData.type || 'comment',
+        userId: commentData.authorId,
+        comment: commentData.text,
         mentions: commentData.mentions || [],
-        metadata: commentData.metadata || {},
-        createdAt: new Date().toISOString(),
-        edited: false,
-        editedAt: null
+        attachments: [],
+        reactions: {},
+        isEdited: false,
+        createdAt: new Date().toISOString()
       };
 
-      storage.addTaskComment(newComment);
+      const createdComment = await db.addTaskComment(newComment);
       
       // Notify subscribers about the new comment
       eventBus.publish(`taskDiscussion:${taskId}`, {
         type: 'add',
-        comment: newComment
+        comment: createdComment
       });
 
       // Handle mentions and notifications
-      if (newComment.mentions?.length > 0) {
-        newComment.mentions.forEach(userId => {
-          const notification = {
-            id: `notif-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      if (commentData.mentions?.length > 0) {
+        for (const userId of commentData.mentions) {
+          await db.createNotification({
             userId,
             type: 'mention',
-            taskId,
-            commentId: newComment.id,
             message: `${commentData.authorName} mentioned you in a comment`,
-            read: false,
-            createdAt: new Date().toISOString()
-          };
-          storage.addNotification(notification);
-          eventBus.publish(`notification:${userId}`, notification);
-        });
+            link: `/tasks/${taskId}`,
+            metadata: {
+              taskId,
+              commentId: createdComment.id,
+              authorName: commentData.authorName
+            }
+          });
+          eventBus.publish(`notification:${userId}`, {
+            type: 'mention',
+            taskId,
+            commentId: createdComment.id
+          });
+        }
       }
 
-      loadComments();
-      return newComment;
+      await loadComments();
+      return createdComment;
     } catch (err) {
       console.error('Error adding comment:', err);
       throw err;
     }
   }, [taskId, loadComments]);
 
-  const updateComment = useCallback((commentId, updates) => {
+  const updateComment = useCallback(async (commentId, updates) => {
     try {
-      const updatedComment = {
+      const updatedComment = await db.updateTaskComment(commentId, {
         ...updates,
-        edited: true,
+        isEdited: true,
         editedAt: new Date().toISOString()
-      };
+      });
 
-      storage.updateTaskComment(commentId, updatedComment);
       eventBus.publish(`taskDiscussion:${taskId}`, {
         type: 'update',
         commentId,
         updates: updatedComment
       });
 
-      loadComments();
+      await loadComments();
     } catch (err) {
       console.error('Error updating comment:', err);
       throw err;
     }
   }, [taskId, loadComments]);
 
-  const deleteComment = useCallback((commentId) => {
+  const deleteComment = useCallback(async (commentId) => {
     try {
-      storage.deleteTaskComment(commentId);
+      await db.deleteTaskComment(commentId);
       eventBus.publish(`taskDiscussion:${taskId}`, {
         type: 'delete',
         commentId
       });
-      loadComments();
+      await loadComments();
     } catch (err) {
       console.error('Error deleting comment:', err);
       throw err;
@@ -160,10 +159,13 @@ export const useTaskDiscussion = (taskId) => {
       subscriptions.forEach(unsubscribe => unsubscribe());
       clearInterval(pollInterval);
       // Clear typing indicators when unmounting
-      eventBus.publish(`taskDiscussion:${taskId}:typing`, {
-        userId: storage.getCurrentUser().id,
-        isTyping: false
-      });
+      const currentUser = JSON.parse(localStorage.getItem('currentUser'));
+      if (currentUser) {
+        eventBus.publish(`taskDiscussion:${taskId}:typing`, {
+          userId: currentUser.id,
+          isTyping: false
+        });
+      }
     };
   }, [taskId, loadComments]);
 

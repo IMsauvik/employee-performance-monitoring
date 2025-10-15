@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { storage } from '../utils/storage';
+import { db } from '../services/databaseService';
 import { eventBus } from '../utils/eventBus';
 
 export const useTaskProgress = (taskId) => {
@@ -10,7 +10,7 @@ export const useTaskProgress = (taskId) => {
     error: null
   });
 
-  const loadProgress = useCallback(() => {
+  const loadProgress = useCallback(async () => {
     if (!taskId) {
       setProgress({
         feedback: [],
@@ -22,7 +22,7 @@ export const useTaskProgress = (taskId) => {
     }
 
     try {
-      const task = storage.getTask(taskId);
+      const task = await db.getTaskById(taskId);
       if (!task) {
         setProgress({
           feedback: [],
@@ -75,15 +75,6 @@ export const useTaskProgress = (taskId) => {
       });
     } catch (error) {
       let errorMsg = 'Failed to load task progress';
-      if (error.name === 'QuotaExceededError') {
-        errorMsg = 'Local storage quota exceeded. Please clear some space.';
-      } else if (error.name === 'SecurityError') {
-        errorMsg = 'Local storage access denied. Check browser privacy settings.';
-      } else if (error instanceof SyntaxError) {
-        errorMsg = 'Data parsing error: Please try refreshing the page.';
-      } else if (error instanceof TypeError) {
-        errorMsg = 'Data format error: Task data may be corrupted or missing required fields.';
-      }
       console.error('Error loading task progress:', error, 'TaskID:', taskId);
       setProgress({
         feedback: [],
@@ -94,14 +85,15 @@ export const useTaskProgress = (taskId) => {
     }
   }, [taskId]);
 
-  const addFeedback = useCallback((feedback) => {
+  const addFeedback = useCallback(async (feedback) => {
     try {
-      const task = storage.getTask(taskId);
+      const task = await db.getTaskById(taskId);
       if (!task) {
         throw new Error('Task not found');
       }
 
-      const currentUser = storage.getCurrentUser();
+      // Get current user from localStorage (auth context stores it there)
+      const currentUser = JSON.parse(localStorage.getItem('currentUser'));
       if (!currentUser) {
         throw new Error('User not logged in');
       }
@@ -131,11 +123,7 @@ export const useTaskProgress = (taskId) => {
       }
 
       const updatedFeedback = [...existingFeedback, newFeedback];
-      const updated = storage.updateTask(taskId, { managerFeedback: updatedFeedback });
-
-      if (!updated) {
-        throw new Error('Failed to update task');
-      }
+      await db.updateTask(taskId, { managerFeedback: updatedFeedback });
 
       // Update local state immediately
       setProgress(prev => ({
@@ -156,9 +144,9 @@ export const useTaskProgress = (taskId) => {
     }
   }, [taskId]);
 
-  const updateProgress = useCallback((progressUpdate) => {
+  const updateProgress = useCallback(async (progressUpdate) => {
     try {
-      const task = storage.getTask(taskId);
+      const task = await db.getTaskById(taskId);
       if (task) {
         const newProgress = {
           id: `progress-${Date.now()}`,
@@ -167,7 +155,7 @@ export const useTaskProgress = (taskId) => {
         };
 
         const updatedHistory = [...(task.progressHistory || []), newProgress];
-        storage.updateTask(taskId, { progressHistory: updatedHistory });
+        await db.updateTask(taskId, { progressHistory: updatedHistory });
         
         // Notify subscribers
         eventBus.publish(`taskProgress:${taskId}`, {

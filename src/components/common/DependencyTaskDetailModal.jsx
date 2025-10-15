@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { X, Link, Calendar, User, FileText, MessageCircle, CheckCircle, ArrowLeft } from 'lucide-react';
-import { storage } from '../../utils/storage';
+import { db } from '../../services/databaseService';
 import { formatDateTime } from '../../utils/helpers';
 import { DEPENDENCY_STATUS, TASK_STATUS } from '../../utils/taskConstants';
 import toast from 'react-hot-toast';
@@ -13,6 +13,15 @@ const DependencyTaskDetailModal = ({ dependencyTaskId, onClose, currentUser }) =
   const [progressNote, setProgressNote] = useState('');
   const [loading, setLoading] = useState(true);
   const [showDiscussion, setShowDiscussion] = useState(false);
+  const [users, setUsers] = useState([]);
+
+  useEffect(() => {
+    const loadUsers = async () => {
+      const allUsers = await db.getUsers();
+      setUsers(allUsers);
+    };
+    loadUsers();
+  }, []);
 
   useEffect(() => {
     if (dependencyTaskId) {
@@ -20,12 +29,12 @@ const DependencyTaskDetailModal = ({ dependencyTaskId, onClose, currentUser }) =
     }
   }, [dependencyTaskId]);
 
-  const loadTaskDetails = () => {
+  const loadTaskDetails = async () => {
     try {
-      const task = storage.getDependencyTask(dependencyTaskId);
+      const task = await db.getDependencyTask(dependencyTaskId);
       if (task) {
         setDepTask(task);
-        const parent = storage.getTask(task.parentTaskId);
+        const parent = await db.getTaskById(task.taskId);
         setParentTask(parent);
       }
     } catch (error) {
@@ -36,7 +45,7 @@ const DependencyTaskDetailModal = ({ dependencyTaskId, onClose, currentUser }) =
     }
   };
 
-  const handleStatusChange = (newStatus) => {
+  const handleStatusChange = async (newStatus) => {
     if (!currentUser || !currentUser.name || !currentUser.id) {
       console.error('Invalid currentUser:', currentUser);
       toast.error('User session expired. Please login again.');
@@ -76,14 +85,15 @@ const DependencyTaskDetailModal = ({ dependencyTaskId, onClose, currentUser }) =
 
       // Notify parent task owner
       if (parentTask && parentTask.id && parentTask.assignedTo) {
-        storage.addNotification({
-          id: `notif-${Date.now()}`,
+        await db.createNotification({
           userId: parentTask.assignedTo,
           taskId: depTask.id,
           message: `${currentUser.name || 'Someone'} completed dependency task: "${depTask.title}"`,
           type: 'dependency_completed',
-          read: false,
-          createdAt: now
+          metadata: {
+            dependencyId: depTask.id,
+            dependencyTitle: depTask.title
+          }
         });
 
         // Add activity to parent task timeline
@@ -102,54 +112,56 @@ const DependencyTaskDetailModal = ({ dependencyTaskId, onClose, currentUser }) =
           }
         };
 
-        const parentTaskData = storage.getTask(parentTask.id);
+        const parentTaskData = await db.getTaskById(parentTask.id);
         if (parentTaskData && parentTaskData.id) {
-          storage.updateTask(parentTask.id, {
+          await db.updateTask(parentTask.id, {
             activityTimeline: [...(parentTaskData.activityTimeline || []), parentActivity]
           });
         }
       }
     }
 
-    storage.updateDependencyTask(depTask.id, updates);
+    await db.updateDependencyTask(depTask.id, updates);
 
     // Notify assignedBy user (person who assigned this dependency)
     if (depTask.assignedBy) {
-      storage.addNotification({
-        id: `notif-${Date.now()}`,
+      await db.createNotification({
         userId: depTask.assignedBy,
-        taskId: depTask.parentTaskId || depTask.id, // Use parentTaskId or fallback to depTask.id
+        taskId: depTask.taskId || depTask.id, // Use taskId or fallback to depTask.id
         message: `Dependency task "${depTask.title}" is now ${newStatus.replace('_', ' ')}`,
         type: 'dependency_status_change',
-        read: false,
-        createdAt: now
+        metadata: {
+          dependencyId: depTask.id,
+          newStatus
+        }
       });
     }
 
     // Also notify parent task assignee if different from assignedBy
     if (parentTask && parentTask.id && parentTask.assignedTo && parentTask.assignedTo !== depTask.assignedBy) {
-      storage.addNotification({
-        id: `notif-${Date.now()}-2`,
+      await db.createNotification({
         userId: parentTask.assignedTo,
         taskId: parentTask.id,
         message: `Dependency task "${depTask.title}" is now ${newStatus.replace('_', ' ')}`,
         type: 'dependency_status_change',
-        read: false,
-        createdAt: now
+        metadata: {
+          dependencyId: depTask.id,
+          newStatus
+        }
       });
     }
 
     toast.success(`Status updated to ${newStatus.replace('_', ' ')}`);
-    loadTaskDetails();
+    await loadTaskDetails();
   };
 
-  const autoResolveBlocker = () => {
+  const autoResolveBlocker = async () => {
     try {
       const now = new Date().toISOString();
 
       // Update blocker status in parent task
-      const tasks = storage.getTasks();
-      const parentTaskData = tasks.find(t => t.id === depTask.parentTaskId);
+      const tasks = await db.getTasks();
+      const parentTaskData = tasks.find(t => t.id === depTask.taskId);
 
       if (parentTaskData && parentTaskData.blockerHistory) {
         const updatedBlockerHistory = parentTaskData.blockerHistory.map(b => {
@@ -177,34 +189,34 @@ const DependencyTaskDetailModal = ({ dependencyTaskId, onClose, currentUser }) =
           userId: 'system'
         };
 
-        storage.updateTask(depTask.parentTaskId, {
+        await db.updateTask(depTask.taskId, {
           status: TASK_STATUS.IN_PROGRESS,
           blockerHistory: updatedBlockerHistory,
           activityTimeline: [...(parentTaskData.activityTimeline || []), activity]
         });
 
         // Notify parent task assignee (validate parentTask exists and has required fields)
-        if (parentTask && parentTask.id && parentTask.assignedTo && parentTask.taskName) {
-          storage.addNotification({
-            id: `notif-${Date.now()}-blocker-resolved`,
+        if (parentTask && parentTask.id && parentTask.assignedTo && parentTask.title) {
+          await db.createNotification({
             userId: parentTask.assignedTo,
             taskId: parentTask.id,
-            message: `Great news! All dependency tasks are completed. The blocker on "${parentTask.taskName}" has been resolved. You can now continue working.`,
+            message: `Great news! All dependency tasks are completed. The blocker on "${parentTask.title}" has been resolved. You can now continue working.`,
             type: 'blocker_auto_resolved',
-            read: false,
-            createdAt: now
+            metadata: {
+              blockerId: depTask.blockerId
+            }
           });
 
           // Notify manager if exists and different from assignee
           if (parentTask.assignedBy && parentTask.assignedBy !== parentTask.assignedTo) {
-            storage.addNotification({
-              id: `notif-${Date.now()}-blocker-resolved-manager`,
+            await db.createNotification({
               userId: parentTask.assignedBy,
               taskId: parentTask.id,
-              message: `Blocker on task "${parentTask.taskName}" has been automatically resolved - all dependencies completed.`,
+              message: `Blocker on task "${parentTask.title}" has been automatically resolved - all dependencies completed.`,
               type: 'blocker_auto_resolved',
-              read: false,
-              createdAt: now
+              metadata: {
+                blockerId: depTask.blockerId
+              }
             });
           }
         }
@@ -216,7 +228,7 @@ const DependencyTaskDetailModal = ({ dependencyTaskId, onClose, currentUser }) =
     }
   };
 
-  const handleAddProgressNote = () => {
+  const handleAddProgressNote = async () => {
     if (!progressNote.trim()) {
       toast.error('Please enter a progress note');
       return;
@@ -241,14 +253,14 @@ const DependencyTaskDetailModal = ({ dependencyTaskId, onClose, currentUser }) =
       userId: currentUser.id
     };
 
-    storage.updateDependencyTask(depTask.id, {
+    await db.updateDependencyTask(depTask.id, {
       progressNotes: [...(depTask.progressNotes || []), note],
       activityTimeline: [...(depTask.activityTimeline || []), activity]
     });
 
     toast.success('Progress note added');
     setProgressNote('');
-    loadTaskDetails();
+    await loadTaskDetails();
   };
 
   if (loading) {
@@ -280,11 +292,15 @@ const DependencyTaskDetailModal = ({ dependencyTaskId, onClose, currentUser }) =
 
   const assignedUser = depTask.assignedToName 
     ? { name: depTask.assignedToName, id: depTask.assignedTo }
-    : storage.getUserById(depTask.assignedTo);
+    : users.find(u => u.id === depTask.assignedTo);
   const assignedByUser = depTask.assignedByName
     ? { name: depTask.assignedByName, id: depTask.assignedBy }
-    : storage.getUserById(depTask.assignedBy);
+    : users.find(u => u.id === depTask.assignedBy);
   const canEdit = depTask.assignedTo === currentUser.id;
+
+  const parentTaskAssignee = parentTask?.assignedTo 
+    ? users.find(u => u.id === parentTask.assignedTo) 
+    : null;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center p-4 z-[100] overflow-y-auto">
@@ -316,9 +332,9 @@ const DependencyTaskDetailModal = ({ dependencyTaskId, onClose, currentUser }) =
               <ArrowLeft className="w-5 h-5 text-orange-600 flex-shrink-0 mt-0.5" />
               <div className="flex-1">
                 <p className="text-sm font-semibold text-orange-900 mb-1">This task helps resolve a blocker in:</p>
-                <p className="font-medium text-gray-900">{parentTask.taskName}</p>
+                <p className="font-medium text-gray-900">{parentTask.title}</p>
                 <p className="text-xs text-gray-600 mt-1">
-                  Assigned to: {storage.getUserById(parentTask.assignedTo)?.name || 'Unknown'}
+                  Assigned to: {parentTaskAssignee?.name || 'Unknown'}
                 </p>
               </div>
             </div>

@@ -21,7 +21,103 @@ const bcryptHash = async (password, rounds = 10) => {
 };
 
 // Database service to replace localStorage
-export const db = {
+export // Helper function to convert database snake_case to camelCase
+const dbToTask = (dbTask) => {
+  if (!dbTask) return null;
+  return {
+    id: dbTask.id,
+    title: dbTask.title,
+    description: dbTask.description,
+    assignedTo: dbTask.assigned_to,
+    assignedBy: dbTask.assigned_by,
+    project: dbTask.project,
+    vertical: dbTask.vertical,
+    priority: dbTask.priority,
+    status: dbTask.status,
+    startDate: dbTask.start_date,
+    dueDate: dbTask.due_date,
+    deadline: dbTask.due_date, // Alias for compatibility
+    completedDate: dbTask.completed_date,
+    estimatedHours: dbTask.estimated_hours,
+    actualHours: dbTask.actual_hours,
+    tags: dbTask.tags,
+    attachments: dbTask.attachments || [],
+    createdAt: dbTask.created_at,
+    updatedAt: dbTask.updated_at
+  };
+};
+
+// Helper function to convert comment from database
+const dbToComment = (dbComment) => {
+  if (!dbComment) return null;
+  return {
+    id: dbComment.id,
+    taskId: dbComment.task_id,
+    userId: dbComment.user_id,
+    comment: dbComment.comment,
+    parentCommentId: dbComment.parent_comment_id,
+    mentions: dbComment.mentions || [],
+    attachments: dbComment.attachments || [],
+    reactions: dbComment.reactions || {},
+    isEdited: dbComment.is_edited || false,
+    editedAt: dbComment.edited_at,
+    createdAt: dbComment.created_at
+  };
+};
+
+// Helper function to convert goal from database
+const dbToGoal = (dbGoal) => {
+  if (!dbGoal) return null;
+  return {
+    id: dbGoal.id,
+    userId: dbGoal.user_id,
+    title: dbGoal.title,
+    description: dbGoal.description,
+    category: dbGoal.category,
+    targetValue: dbGoal.target_value,
+    currentValue: dbGoal.current_value,
+    unit: dbGoal.unit,
+    startDate: dbGoal.start_date,
+    endDate: dbGoal.end_date,
+    status: dbGoal.status,
+    priority: dbGoal.priority,
+    createdBy: dbGoal.created_by,
+    createdAt: dbGoal.created_at,
+    updatedAt: dbGoal.updated_at
+  };
+};
+
+// Helper function to convert notification from database
+const dbToNotification = (dbNotif) => {
+  if (!dbNotif) return null;
+  return {
+    id: dbNotif.id,
+    userId: dbNotif.user_id,
+    title: dbNotif.title,
+    message: dbNotif.message,
+    type: dbNotif.type,
+    link: dbNotif.link,
+    read: dbNotif.is_read || false,
+    isRead: dbNotif.is_read || false, // Alias
+    metadata: dbNotif.metadata || {},
+    createdAt: dbNotif.created_at,
+    readAt: dbNotif.read_at
+  };
+};
+
+// Converter for dependency tasks from database snake_case to app camelCase
+const dbToDependency = (dbDep) => {
+  if (!dbDep) return null;
+  return {
+    id: dbDep.id,
+    taskId: dbDep.task_id,
+    dependsOnTaskId: dbDep.depends_on_task_id,
+    dependencyType: dbDep.dependency_type,
+    createdAt: dbDep.created_at
+  };
+};
+
+const databaseService = {
   // ==================== USERS ====================
   
   async getUsers() {
@@ -237,7 +333,8 @@ export const db = {
       const { data, error } = await query.order('created_at', { ascending: false });
       
       if (error) throw error;
-      return data || [];
+      // Convert snake_case to camelCase
+      return (data || []).map(dbToTask);
     } catch (error) {
       console.error('Error fetching tasks:', error);
       return [];
@@ -253,7 +350,8 @@ export const db = {
         .single();
       
       if (error) throw error;
-      return data;
+      // Convert snake_case to camelCase
+      return dbToTask(data);
     } catch (error) {
       console.error('Error fetching task:', error);
       return null;
@@ -262,14 +360,37 @@ export const db = {
 
   async createTask(taskData) {
     try {
+      // Map camelCase to snake_case for database
+      // Don't send id - let database generate UUID
+      const dbData = {
+        title: taskData.title,
+        description: taskData.description,
+        assigned_to: taskData.assignedTo,
+        assigned_by: taskData.assignedBy,
+        project: taskData.project,
+        vertical: taskData.vertical,
+        priority: taskData.priority,
+        status: taskData.status,
+        start_date: taskData.startDate,
+        due_date: taskData.dueDate,
+        completed_date: taskData.completedDate,
+        estimated_hours: taskData.estimatedHours,
+        actual_hours: taskData.actualHours,
+        tags: taskData.tags,
+        attachments: taskData.attachments || [],
+        created_at: taskData.createdAt,
+        updated_at: taskData.updatedAt
+      };
+
       const { data, error } = await supabase
         .from('tasks')
-        .insert([taskData])
+        .insert([dbData])
         .select()
         .single();
       
       if (error) throw error;
-      return data;
+      // Convert snake_case back to camelCase
+      return dbToTask(data);
     } catch (error) {
       console.error('Error creating task:', error);
       throw error;
@@ -278,15 +399,35 @@ export const db = {
 
   async updateTask(id, updates) {
     try {
+      // Map camelCase to snake_case for database
+      const dbUpdates = {};
+      if (updates.title !== undefined) dbUpdates.title = updates.title;
+      if (updates.description !== undefined) dbUpdates.description = updates.description;
+      if (updates.assignedTo !== undefined) dbUpdates.assigned_to = updates.assignedTo;
+      if (updates.assignedBy !== undefined) dbUpdates.assigned_by = updates.assignedBy;
+      if (updates.project !== undefined) dbUpdates.project = updates.project;
+      if (updates.vertical !== undefined) dbUpdates.vertical = updates.vertical;
+      if (updates.priority !== undefined) dbUpdates.priority = updates.priority;
+      if (updates.status !== undefined) dbUpdates.status = updates.status;
+      if (updates.startDate !== undefined) dbUpdates.start_date = updates.startDate;
+      if (updates.dueDate !== undefined) dbUpdates.due_date = updates.dueDate;
+      if (updates.completedDate !== undefined) dbUpdates.completed_date = updates.completedDate;
+      if (updates.estimatedHours !== undefined) dbUpdates.estimated_hours = updates.estimatedHours;
+      if (updates.actualHours !== undefined) dbUpdates.actual_hours = updates.actualHours;
+      if (updates.tags !== undefined) dbUpdates.tags = updates.tags;
+      if (updates.attachments !== undefined) dbUpdates.attachments = updates.attachments;
+      if (updates.updatedAt !== undefined) dbUpdates.updated_at = updates.updatedAt;
+
       const { data, error } = await supabase
         .from('tasks')
-        .update(updates)
+        .update(dbUpdates)
         .eq('id', id)
         .select()
         .single();
       
       if (error) throw error;
-      return data;
+      // Convert snake_case back to camelCase
+      return dbToTask(data);
     } catch (error) {
       console.error('Error updating task:', error);
       throw error;
@@ -323,7 +464,8 @@ export const db = {
       const { data, error } = await query.order('created_at', { ascending: false });
       
       if (error) throw error;
-      return data || [];
+      // Convert snake_case to camelCase
+      return (data || []).map(dbToGoal);
     } catch (error) {
       console.error('Error fetching goals:', error);
       return [];
@@ -332,14 +474,34 @@ export const db = {
 
   async createGoal(goalData) {
     try {
+      // Map camelCase to snake_case for database
+      // Don't send id - let database generate UUID
+      const dbData = {
+        user_id: goalData.userId,
+        title: goalData.title,
+        description: goalData.description,
+        category: goalData.category,
+        target_value: goalData.targetValue,
+        current_value: goalData.currentValue,
+        unit: goalData.unit,
+        start_date: goalData.startDate,
+        end_date: goalData.endDate,
+        status: goalData.status,
+        priority: goalData.priority,
+        created_by: goalData.createdBy,
+        created_at: goalData.createdAt,
+        updated_at: goalData.updatedAt
+      };
+
       const { data, error } = await supabase
         .from('goals')
-        .insert([goalData])
+        .insert([dbData])
         .select()
         .single();
       
       if (error) throw error;
-      return data;
+      // Convert snake_case back to camelCase
+      return dbToGoal(data);
     } catch (error) {
       console.error('Error creating goal:', error);
       throw error;
@@ -348,15 +510,32 @@ export const db = {
 
   async updateGoal(id, updates) {
     try {
+      // Map camelCase to snake_case for database
+      const dbUpdates = {};
+      if (updates.userId !== undefined) dbUpdates.user_id = updates.userId;
+      if (updates.title !== undefined) dbUpdates.title = updates.title;
+      if (updates.description !== undefined) dbUpdates.description = updates.description;
+      if (updates.category !== undefined) dbUpdates.category = updates.category;
+      if (updates.targetValue !== undefined) dbUpdates.target_value = updates.targetValue;
+      if (updates.currentValue !== undefined) dbUpdates.current_value = updates.currentValue;
+      if (updates.unit !== undefined) dbUpdates.unit = updates.unit;
+      if (updates.startDate !== undefined) dbUpdates.start_date = updates.startDate;
+      if (updates.endDate !== undefined) dbUpdates.end_date = updates.endDate;
+      if (updates.status !== undefined) dbUpdates.status = updates.status;
+      if (updates.priority !== undefined) dbUpdates.priority = updates.priority;
+      if (updates.createdBy !== undefined) dbUpdates.created_by = updates.createdBy;
+      if (updates.updatedAt !== undefined) dbUpdates.updated_at = updates.updatedAt;
+
       const { data, error } = await supabase
         .from('goals')
-        .update(updates)
+        .update(dbUpdates)
         .eq('id', id)
         .select()
         .single();
       
       if (error) throw error;
-      return data;
+      // Convert snake_case back to camelCase
+      return dbToGoal(data);
     } catch (error) {
       console.error('Error updating goal:', error);
       throw error;
@@ -390,7 +569,8 @@ export const db = {
         .limit(50);
       
       if (error) throw error;
-      return data || [];
+      // Convert snake_case to camelCase
+      return (data || []).map(dbToNotification);
     } catch (error) {
       console.error('Error fetching notifications:', error);
       return [];
@@ -414,14 +594,28 @@ export const db = {
 
   async createNotification(notificationData) {
     try {
+      // Map camelCase to snake_case for database
+      // Don't send id - let database generate UUID
+      const dbData = {
+        user_id: notificationData.userId,
+        title: notificationData.title || notificationData.message?.substring(0, 100),
+        message: notificationData.message,
+        type: notificationData.type || 'info',
+        link: notificationData.link,
+        is_read: notificationData.read || false,
+        metadata: notificationData.metadata || {},
+        created_at: notificationData.createdAt || new Date().toISOString()
+      };
+
       const { data, error } = await supabase
         .from('notifications')
-        .insert([notificationData])
+        .insert([dbData])
         .select()
         .single();
       
       if (error) throw error;
-      return data;
+      // Convert snake_case back to camelCase
+      return dbToNotification(data);
     } catch (error) {
       console.error('Error creating notification:', error);
       throw error;
@@ -454,7 +648,8 @@ export const db = {
         .order('created_at', { ascending: true });
       
       if (error) throw error;
-      return data || [];
+      // Convert snake_case to camelCase
+      return (data || []).map(dbToComment);
     } catch (error) {
       console.error('Error fetching comments:', error);
       return [];
@@ -463,14 +658,30 @@ export const db = {
 
   async addTaskComment(commentData) {
     try {
+      // Map camelCase to snake_case for database
+      // Don't send id - let database generate UUID
+      const dbData = {
+        task_id: commentData.taskId,
+        user_id: commentData.userId,
+        comment: commentData.comment,
+        parent_comment_id: commentData.parentCommentId,
+        mentions: commentData.mentions,
+        attachments: commentData.attachments || [],
+        reactions: commentData.reactions || {},
+        is_edited: commentData.isEdited || false,
+        edited_at: commentData.editedAt,
+        created_at: commentData.createdAt
+      };
+
       const { data, error } = await supabase
         .from('task_comments')
-        .insert([commentData])
+        .insert([dbData])
         .select()
         .single();
       
       if (error) throw error;
-      return data;
+      // Convert snake_case back to camelCase
+      return dbToComment(data);
     } catch (error) {
       console.error('Error adding comment:', error);
       throw error;
@@ -479,15 +690,28 @@ export const db = {
 
   async updateTaskComment(commentId, updates) {
     try {
+      // Map camelCase to snake_case for database
+      const dbUpdates = {};
+      if (updates.comment !== undefined) dbUpdates.comment = updates.comment;
+      if (updates.taskId !== undefined) dbUpdates.task_id = updates.taskId;
+      if (updates.userId !== undefined) dbUpdates.user_id = updates.userId;
+      if (updates.parentCommentId !== undefined) dbUpdates.parent_comment_id = updates.parentCommentId;
+      if (updates.mentions !== undefined) dbUpdates.mentions = updates.mentions;
+      if (updates.attachments !== undefined) dbUpdates.attachments = updates.attachments;
+      if (updates.reactions !== undefined) dbUpdates.reactions = updates.reactions;
+      if (updates.isEdited !== undefined) dbUpdates.is_edited = updates.isEdited;
+      if (updates.editedAt !== undefined) dbUpdates.edited_at = updates.editedAt;
+
       const { data, error } = await supabase
         .from('task_comments')
-        .update(updates)
+        .update(dbUpdates)
         .eq('id', commentId)
         .select()
         .single();
       
       if (error) throw error;
-      return data;
+      // Convert snake_case back to camelCase
+      return dbToComment(data);
     } catch (error) {
       console.error('Error updating comment:', error);
       throw error;
@@ -520,7 +744,7 @@ export const db = {
         .single();
       
       if (error) throw error;
-      return data;
+      return dbToDependency(data);
     } catch (error) {
       console.error('Error fetching dependency task:', error);
       return null;
@@ -529,14 +753,23 @@ export const db = {
 
   async createDependencyTask(dependencyData) {
     try {
+      // Map camelCase to snake_case for database
+      // Don't send id - let database generate UUID
+      const dbData = {
+        task_id: dependencyData.taskId,
+        depends_on_task_id: dependencyData.dependsOnTaskId,
+        dependency_type: dependencyData.dependencyType || 'finish_to_start',
+        created_at: dependencyData.createdAt
+      };
+
       const { data, error } = await supabase
         .from('task_dependencies')
-        .insert([dependencyData])
+        .insert([dbData])
         .select()
         .single();
       
       if (error) throw error;
-      return data;
+      return dbToDependency(data);
     } catch (error) {
       console.error('Error creating dependency task:', error);
       throw error;
@@ -545,15 +778,21 @@ export const db = {
 
   async updateDependencyTask(dependencyId, updates) {
     try {
+      // Map camelCase to snake_case for database
+      const dbUpdates = {};
+      if (updates.taskId !== undefined) dbUpdates.task_id = updates.taskId;
+      if (updates.dependsOnTaskId !== undefined) dbUpdates.depends_on_task_id = updates.dependsOnTaskId;
+      if (updates.dependencyType !== undefined) dbUpdates.dependency_type = updates.dependencyType;
+
       const { data, error} = await supabase
         .from('task_dependencies')
-        .update(updates)
+        .update(dbUpdates)
         .eq('id', dependencyId)
         .select()
         .single();
       
       if (error) throw error;
-      return data;
+      return dbToDependency(data);
     } catch (error) {
       console.error('Error updating dependency task:', error);
       throw error;
@@ -584,7 +823,7 @@ export const db = {
         .order('created_at', { ascending: false });
       
       if (error) throw error;
-      return data || [];
+      return (data || []).map(dbToDependency);
     } catch (error) {
       console.error('Error fetching dependencies for task:', error);
       return [];
@@ -592,4 +831,5 @@ export const db = {
   },
 };
 
-export default db;
+export const db = databaseService;
+export default databaseService;
