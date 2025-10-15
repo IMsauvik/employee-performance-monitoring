@@ -59,10 +59,15 @@ const TasksListPage = () => {
   const uniqueProjects = [...new Set(tasks.map(t => t.project))];
   const uniqueVerticals = [...new Set(tasks.map(t => t.vertical))];
 
-  const handleAssignTask = (taskData) => {
-    addTask(taskData);
-    setShowAssignModal(false);
-    refreshTasks();
+  const handleAssignTask = async (taskData) => {
+    try {
+      await addTask(taskData);
+      setShowAssignModal(false);
+      await refreshTasks();
+    } catch (error) {
+      console.error('Error assigning task:', error);
+      // You can add toast notification here if needed
+    }
   };
 
   const handleExport = (format) => {

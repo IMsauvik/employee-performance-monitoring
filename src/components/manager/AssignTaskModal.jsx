@@ -3,7 +3,7 @@ import { X, Upload, File, Trash2 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { generateId, calculateTimeline } from '../../utils/helpers';
 import { TASK_STATUS, ACTIVITY_TYPE } from '../../utils/taskConstants';
-import { storage } from '../../utils/storage';
+import { db } from '../../services/databaseService';
 import toast from 'react-hot-toast';
 import SuccessModal from '../common/SuccessModal';
 
@@ -101,7 +101,7 @@ const AssignTaskModal = ({ employees, onClose, onAssign }) => {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (!validate()) return;
@@ -160,26 +160,31 @@ const AssignTaskModal = ({ employees, onClose, onAssign }) => {
     const employeeName = employees.find(e => e.id === formData.assignedTo)?.name || 'employee';
     setAssignedEmployeeName(employeeName);
 
-    // Create notification for the assigned employee
-    storage.addNotification({
-      id: generateId(),
-      userId: formData.assignedTo,
-      type: 'task_assigned',
-      taskId: newTask.id,
-      message: `New task assigned: "${formData.taskName}"`,
-      read: false,
-      createdAt: now.toISOString(),
-      metadata: {
-        taskName: formData.taskName,
-        assignedBy: currentUser.name,
-        priority: formData.priority,
-        deadline: formData.deadline
-      }
-    });
+    try {
+      // Create notification for the assigned employee
+      await db.createNotification({
+        id: generateId(),
+        userId: formData.assignedTo,
+        type: 'task_assigned',
+        taskId: newTask.id,
+        message: `New task assigned: "${formData.taskName}"`,
+        read: false,
+        createdAt: now.toISOString(),
+        metadata: {
+          taskName: formData.taskName,
+          assignedBy: currentUser.name,
+          priority: formData.priority,
+          deadline: formData.deadline
+        }
+      });
 
-    onAssign(newTask);
-    toast.success(`Task assigned to ${employeeName} successfully!`);
-    setShowSuccessModal(true);
+      await onAssign(newTask);
+      toast.success(`Task assigned to ${employeeName} successfully!`);
+      setShowSuccessModal(true);
+    } catch (error) {
+      console.error('Error assigning task:', error);
+      toast.error('Failed to assign task. Please try again.');
+    }
   };
 
   const handleSuccessModalClose = () => {
