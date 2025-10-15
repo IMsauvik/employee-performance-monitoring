@@ -18,46 +18,54 @@ const Login = () => {
     setError('');
     setLoading(true);
 
-    const result = login(email, password);
+    try {
+      const result = await login(email, password);
 
-    if (result.success) {
-      if (result.user.role === 'admin') {
-        navigate('/admin/dashboard');
-      } else if (result.user.role === 'manager') {
-        navigate('/manager/dashboard');
+      if (result.success) {
+        if (result.user.role === 'admin') {
+          navigate('/admin/dashboard');
+        } else if (result.user.role === 'manager') {
+          navigate('/manager/dashboard');
+        } else {
+          navigate('/employee/dashboard');
+        }
       } else {
-        navigate('/employee/dashboard');
+        setError(result.error);
       }
-    } else {
-      setError(result.error);
+    } catch (error) {
+      setError('Login failed. Please try again.');
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   };
 
-  const handleDemoLogin = (role) => {
+  const handleDemoLogin = async (role) => {
     let demoCredentials;
     if (role === 'admin') {
-      demoCredentials = { email: 'admin@demo.com', password: 'admin123' };
+      demoCredentials = { email: 'admin@demo.com', password: 'demo123' };
     } else if (role === 'manager') {
-      demoCredentials = { email: 'manager@demo.com', password: 'manager123' };
+      demoCredentials = { email: 'manager@demo.com', password: 'demo123' };
     } else {
-      demoCredentials = { email: 'alice@demo.com', password: 'employee123' };
+      demoCredentials = { email: 'alice@demo.com', password: 'demo123' };
     }
 
     setEmail(demoCredentials.email);
     setPassword(demoCredentials.password);
 
-    const result = login(demoCredentials.email, demoCredentials.password);
+    try {
+      const result = await login(demoCredentials.email, demoCredentials.password);
 
-    if (result.success) {
-      if (result.user.role === 'admin') {
-        navigate('/admin/dashboard');
-      } else if (result.user.role === 'manager') {
-        navigate('/manager/dashboard');
-      } else {
-        navigate('/employee/dashboard');
+      if (result.success) {
+        if (result.user.role === 'admin') {
+          navigate('/admin/dashboard');
+        } else if (result.user.role === 'manager') {
+          navigate('/manager/dashboard');
+        } else {
+          navigate('/employee/dashboard');
+        }
       }
+    } catch (error) {
+      setError('Demo login failed. Please try again.');
     }
   };
 
