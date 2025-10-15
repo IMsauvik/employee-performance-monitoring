@@ -1,6 +1,25 @@
 import { supabase } from '../config/supabase';
 import bcrypt from 'bcryptjs';
 
+// Browser-compatible bcrypt
+const bcryptCompare = async (password, hash) => {
+  try {
+    return await bcrypt.compare(password, hash);
+  } catch (error) {
+    console.error('Bcrypt compare error:', error);
+    return false;
+  }
+};
+
+const bcryptHash = async (password, rounds = 10) => {
+  try {
+    return await bcrypt.hash(password, rounds);
+  } catch (error) {
+    console.error('Bcrypt hash error:', error);
+    throw error;
+  }
+};
+
 // Database service to replace localStorage
 export const db = {
   // ==================== USERS ====================
@@ -57,7 +76,7 @@ export const db = {
   async createUser(userData) {
     try {
       // Hash the password
-      const hashedPassword = await bcrypt.hash(userData.password, 10);
+      const hashedPassword = await bcryptHash(userData.password);
       
       const newUser = {
         email: userData.email,
@@ -82,6 +101,68 @@ export const db = {
     } catch (error) {
       console.error('Error creating user:', error);
       throw error;
+    }
+  },
+
+  async updateUser(id, updates) {
+    try {
+      // If password is being updated, hash it
+      if (updates.password) {
+        updates.password_hash = await bcryptHash(updates.password);
+        delete updates.password;
+      }
+
+      const { data, error } = await supabase
+        .from('users')
+        .update(updates)
+        .eq('id', id)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Error updating user:', error);
+      throw error;
+    }
+  },
+
+  async deleteUser(id) {
+    try {
+      // Soft delete - set is_active to false
+      const { error } = await supabase
+        .from('users')
+        .update({ is_active: false })
+        .eq('id', id);
+      
+      if (error) throw error;
+      return true;
+    } catch (error) {
+      console.error('Error deleting user:', error);
+      throw error;
+    }
+  },
+
+  async verifyPassword(email, password) {
+    try {
+      console.log('Verifying password for:', email);
+      const user = await this.getUserByEmail(email);
+      
+      if (!user) {
+        console.log('User not found:', email);
+        return null;
+      }
+
+      console.log('User found, comparing password...');
+      const isValid = await bcryptCompare(password, user.password_hash);
+      console.log('Password valid:', isValid);
+      
+      if (!isValid) return null;
+
+      return user;
+    } catch (error) {
+      console.error('Error verifying password:', error);
+      return null;
     }
   },
 
