@@ -40,10 +40,27 @@ const dbToTask = (dbTask) => {
     completedDate: dbTask.completed_date,
     estimatedHours: dbTask.estimated_hours,
     actualHours: dbTask.actual_hours,
-    tags: dbTask.tags,
+    tags: dbTask.tags || [],
     attachments: dbTask.attachments || [],
     createdAt: dbTask.created_at,
-    updatedAt: dbTask.updated_at
+    updatedAt: dbTask.updated_at,
+    
+    // Manager feedback and progress fields
+    managerFeedback: dbTask.manager_feedback,
+    feedbackHistory: dbTask.feedback_history || [],
+    progressPercentage: dbTask.progress_percentage || 0,
+    progressNotes: dbTask.progress_notes || [],
+    
+    // Activity and timeline fields
+    activityTimeline: dbTask.activity_timeline || [],
+    blockerHistory: dbTask.blocker_history || [],
+    dependencyTasks: dbTask.dependency_tasks || [],
+    
+    // Additional fields
+    comments: dbTask.comments || [],
+    reactions: dbTask.reactions || {},
+    isBlocked: dbTask.is_blocked || false,
+    blockedReason: dbTask.blocked_reason
   };
 };
 
@@ -417,6 +434,23 @@ const databaseService = {
       if (updates.tags !== undefined) dbUpdates.tags = updates.tags;
       if (updates.attachments !== undefined) dbUpdates.attachments = updates.attachments;
       if (updates.updatedAt !== undefined) dbUpdates.updated_at = updates.updatedAt;
+      
+      // Manager feedback and progress fields
+      if (updates.managerFeedback !== undefined) dbUpdates.manager_feedback = updates.managerFeedback;
+      if (updates.feedbackHistory !== undefined) dbUpdates.feedback_history = updates.feedbackHistory;
+      if (updates.progressPercentage !== undefined) dbUpdates.progress_percentage = updates.progressPercentage;
+      if (updates.progressNotes !== undefined) dbUpdates.progress_notes = updates.progressNotes;
+      
+      // Activity and timeline fields
+      if (updates.activityTimeline !== undefined) dbUpdates.activity_timeline = updates.activityTimeline;
+      if (updates.blockerHistory !== undefined) dbUpdates.blocker_history = updates.blockerHistory;
+      if (updates.dependencyTasks !== undefined) dbUpdates.dependency_tasks = updates.dependencyTasks;
+      
+      // Additional fields
+      if (updates.comments !== undefined) dbUpdates.comments = updates.comments;
+      if (updates.reactions !== undefined) dbUpdates.reactions = updates.reactions;
+      if (updates.isBlocked !== undefined) dbUpdates.is_blocked = updates.isBlocked;
+      if (updates.blockedReason !== undefined) dbUpdates.blocked_reason = updates.blockedReason;
 
       const { data, error } = await supabase
         .from('tasks')
