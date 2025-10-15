@@ -45,3 +45,4 @@ coverage
 .DS_Store
 .AppleDouble
 .LSOverride
+.vercel
