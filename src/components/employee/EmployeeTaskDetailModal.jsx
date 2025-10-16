@@ -30,6 +30,7 @@ const EmployeeTaskDetailModal = ({ task, onClose, onUpdate }) => {
   const [showRejectionModal, setShowRejectionModal] = useState(false);
   const [rejectionReason, setRejectionReason] = useState('');
   const [dependencyToReject, setDependencyToReject] = useState(null);
+  const [users, setUsers] = useState([]);
 
   useEffect(() => {
     // Load dependency tasks from blocker history
@@ -42,6 +43,17 @@ const EmployeeTaskDetailModal = ({ task, onClose, onUpdate }) => {
       });
     }
     setDependencyTasks(deps);
+
+    // Load users for the mention functionality
+    const loadUsers = async () => {
+      try {
+        const allUsers = await db.getUsers();
+        setUsers(allUsers || []);
+      } catch (error) {
+        console.error('Error loading users:', error);
+      }
+    };
+    loadUsers();
   }, [task]);
 
   const handleStatusChange = (newStatus) => {
@@ -155,7 +167,7 @@ const EmployeeTaskDetailModal = ({ task, onClose, onUpdate }) => {
     return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
   };
 
-  const confirmSubmitForReview = () => {
+  const confirmSubmitForReview = async () => {
     const now = new Date().toISOString();
     const updates = {
       status: TASK_STATUS.SUBMITTED,
@@ -181,20 +193,23 @@ const EmployeeTaskDetailModal = ({ task, onClose, onUpdate }) => {
 
     // Create notification for the manager who assigned the task
     if (task.assignedBy) {
-      storage.addNotification({
-        id: generateId(),
-        userId: task.assignedBy,
-        type: 'task_submitted',
-        taskId: task.id,
-        message: `Task submitted for review: "${task.taskName}"`,
-        read: false,
-        createdAt: now,
-        metadata: {
-          taskName: task.taskName,
-          submittedBy: currentUser.name,
-          submittedById: currentUser.id
-        }
-      });
+      try {
+        await db.createNotification({
+          userId: task.assignedBy,
+          title: `Task Submitted for Review`,
+          message: `Task submitted for review: "${task.title}"`,
+          type: 'task_submitted',
+          link: `/tasks/${task.id}`,
+          metadata: {
+            taskId: task.id,
+            taskTitle: task.title,
+            submittedBy: currentUser.name,
+            submittedById: currentUser.id
+          }
+        });
+      } catch (error) {
+        console.error('Error creating notification:', error);
+      }
     }
 
     onUpdate(task.id, updates);
@@ -228,19 +243,17 @@ const EmployeeTaskDetailModal = ({ task, onClose, onUpdate }) => {
     };
 
     // Add comment to task discussion
-    const comment = {
-      id: generateId(),
-      taskId: task.id,
-      userId: currentUser.id,
-      userName: currentUser.name,
-      userRole: currentUser.role,
-      content: blockerComment,
-      mentions: mentionedUsers,
-      type: 'blocker',
-      createdAt: now,
-      reactions: []
-    };
-    storage.addTaskComment(comment);
+    try {
+      await db.addTaskComment({
+        taskId: task.id,
+        userId: currentUser.id,
+        comment: blockerComment,
+        mentions: mentionedUsers,
+        createdAt: now
+      });
+    } catch (error) {
+      console.error('Error adding task comment:', error);
+    }
 
     // Add activity for status change
     const activity = {
@@ -267,80 +280,72 @@ const EmployeeTaskDetailModal = ({ task, onClose, onUpdate }) => {
     };
 
     // Send notifications to mentioned users
-    mentionedUsers.forEach(userId => {
-      storage.addNotification({
-        id: generateId(),
-        userId: userId,
-        type: 'task_mention',
-        taskId: task.id,
-        message: `${currentUser.name} mentioned you in a blocked task: "${task.taskName}"`,
-        read: false,
-        createdAt: now,
-        metadata: {
-          taskName: task.taskName,
-          mentionedBy: currentUser.name,
-          comment: blockerComment
-        }
-      });
-    });
+    for (const userId of mentionedUsers) {
+      try {
+        await db.createNotification({
+          userId,
+          title: `Mentioned in Blocked Task`,
+          message: `${currentUser.name} mentioned you in a blocked task: "${task.title}"`,
+          type: 'task_mention',
+          link: `/tasks/${task.id}`,
+          metadata: {
+            taskId: task.id,
+            taskTitle: task.title,
+            mentionedBy: currentUser.name,
+            comment: blockerComment
+          }
+        });
+      } catch (error) {
+        console.error('Error creating notification:', error);
+      }
+    }
 
     // Always notify the manager
     if (task.assignedBy && !mentionedUsers.includes(task.assignedBy)) {
-      storage.addNotification({
-        id: generateId(),
-        userId: task.assignedBy,
-        type: 'task_blocked',
-        taskId: task.id,
-        message: `Task blocked: "${task.taskName}"`,
-        read: false,
-        createdAt: now,
-        metadata: {
-          taskName: task.taskName,
-          blockedBy: currentUser.name,
-          reason: blockerComment
-        }
-      });
+      try {
+        await db.createNotification({
+          userId: task.assignedBy,
+          title: `Task Blocked`,
+          message: `Task blocked: "${task.title}"`,
+          type: 'task_blocked',
+          link: `/tasks/${task.id}`,
+          metadata: {
+            taskId: task.id,
+            taskTitle: task.title,
+            blockedBy: currentUser.name,
+            reason: blockerComment
+          }
+        });
+      } catch (error) {
+        console.error('Error creating notification:', error);
+      }
     }
 
     // Create dependency tasks for each mentioned user
     const createdDependencies = [];
-    mentionedUsers.forEach((userId, index) => {
-      const user = storage.getUserById(userId);
+    for (let index = 0; index < mentionedUsers.length; index++) {
+      const userId = mentionedUsers[index];
+      const user = users.find(u => u.id === userId);
       if (user) {
-        const dependencyTask = {
-          id: `dep-${Date.now()}-${index}`,
-          parentTaskId: task.id,
-          parentTaskName: task.taskName,
-          blockerId: blockerEntry.id,
-          title: `Help resolve: ${blockerComment.substring(0, 50)}${blockerComment.length > 50 ? '...' : ''}`,
-          description: blockerComment,
-          assignedTo: userId,
-          assignedToName: user.name,
-          assignedBy: currentUser.id,
-          assignedByName: currentUser.name,
-          status: 'not_started',
-          dueDate: task.deadline || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-          createdAt: now,
-          updatedAt: now,
-          progressNotes: [],
-          activityTimeline: [{
-            id: `activity-${Date.now()}-${index}`,
-            type: 'ASSIGNMENT',
-            title: 'Dependency Task Created',
-            description: `Created by ${currentUser.name} to resolve blocker in "${task.taskName}"`,
-            timestamp: now,
-            userName: currentUser.name,
-            userId: currentUser.id
-          }]
-        };
+        try {
+          const dependencyTask = await db.createDependencyTask({
+            taskId: task.id,
+            dependsOnTaskId: `dep-${Date.now()}-${index}`,
+            dependencyType: 'blocker',
+            createdAt: now
+          });
 
-        storage.addDependencyTask(dependencyTask);
-        createdDependencies.push(dependencyTask);
+          if (dependencyTask) {
+            createdDependencies.push(dependencyTask.id);
+          }
+        } catch (error) {
+          console.error('Error creating dependency task:', error);
+        }
       }
-    });
+    }
 
     // Add dependency task IDs to blocker entry
-    blockerEntry.dependencyTasks = createdDependencies.map(d => d.id);
+    blockerEntry.dependencyTasks = createdDependencies;
 
     // Update parent task updates with blocker entry that includes dependency IDs
     updates.blockerHistory = [...(task.blockerHistory || []), blockerEntry];
@@ -350,13 +355,13 @@ const EmployeeTaskDetailModal = ({ task, onClose, onUpdate }) => {
     // Send email notifications to mentioned users
     const emailPromises = [];
     if (mentionedUsers.length > 0) {
-      mentionedUsers.forEach(userId => {
-        const user = storage.getUserById(userId);
+      for (const userId of mentionedUsers) {
+        const user = users.find(u => u.id === userId);
         if (user && user.email) {
           emailPromises.push(
             NotificationService.sendCommentNotification([user.email], {
-              taskName: task.taskName,
-              taskDescription: task.taskDescription || 'No description',
+              taskName: task.title,
+              taskDescription: task.description || 'No description',
               taskUrl: `${window.location.origin}/employee/dashboard`,
               commentText: blockerComment,
               authorName: currentUser.name,
@@ -365,16 +370,16 @@ const EmployeeTaskDetailModal = ({ task, onClose, onUpdate }) => {
             })
           );
         }
-      });
+      }
     }
 
     // Send email to manager
     if (task.assignedBy && !mentionedUsers.includes(task.assignedBy)) {
-      const manager = storage.getUserById(task.assignedBy);
+      const manager = users.find(u => u.id === task.assignedBy);
       if (manager && manager.email) {
         emailPromises.push(
           NotificationService.sendTaskUpdate(manager.email, {
-            taskName: task.taskName,
+            taskName: task.title,
             taskId: task.id,
             status: 'blocked',
             blockedBy: currentUser.name,
@@ -608,7 +613,7 @@ const EmployeeTaskDetailModal = ({ task, onClose, onUpdate }) => {
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200 sticky top-0 bg-white">
           <div className="flex-1">
-            <h2 className="text-2xl font-bold text-gray-900">{task.taskName}</h2>
+            <h2 className="text-2xl font-bold text-gray-900">{task.title}</h2>
             <div className="flex items-center gap-3 mt-2">
               <span className={`px-3 py-1 text-xs font-semibold rounded-full ${getPriorityColor(task.priority)}`}>
                 {task.priority} priority
@@ -651,7 +656,7 @@ const EmployeeTaskDetailModal = ({ task, onClose, onUpdate }) => {
           {/* Description */}
           <div>
             <h3 className="text-lg font-semibold text-gray-900 mb-3">Task Description</h3>
-            <p className="text-gray-700 leading-relaxed">{task.taskDescription}</p>
+            <p className="text-gray-700 leading-relaxed">{task.description}</p>
           </div>
 
           {/* Rework Required Alert */}
@@ -1031,7 +1036,7 @@ const EmployeeTaskDetailModal = ({ task, onClose, onUpdate }) => {
                   Select people who can help unblock this task. They'll receive instant notifications.
                 </p>
                 <div className="space-y-2 max-h-48 overflow-y-auto border border-gray-200 rounded-lg p-3">
-                  {storage.getUsers().filter(u => u.id !== currentUser.id).map(user => (
+                  {users.filter(u => u.id !== currentUser.id).map(user => (
                     <label key={user.id} className="flex items-center p-2 hover:bg-gray-50 rounded cursor-pointer">
                       <input
                         type="checkbox"

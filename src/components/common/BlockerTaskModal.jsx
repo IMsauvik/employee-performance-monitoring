@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { X, Ban, Calendar, User, Clock, MessageCircle, AlertCircle, CheckCircle, Plus, Link } from 'lucide-react';
-import { storage } from '../../utils/storage';
+import { db } from '../../services/databaseService';
 import { formatDateTime } from '../../utils/helpers';
 import { TASK_STATUS, DEPENDENCY_STATUS } from '../../utils/taskConstants';
 import toast from 'react-hot-toast';
@@ -14,23 +14,33 @@ const BlockerTaskModal = ({ taskId, onClose, currentUser }) => {
   const [showDiscussion, setShowDiscussion] = useState(false);
   const [showCreateDependency, setShowCreateDependency] = useState(false);
   const [dependencyTasks, setDependencyTasks] = useState([]);
+  const [users, setUsers] = useState([]);
 
   useEffect(() => {
     loadTaskDetails();
   }, [taskId]);
 
-  const loadTaskDetails = () => {
-    const taskData = storage.getTask(taskId);
-    if (taskData) {
-      setTask(taskData);
-      // Load dependency tasks
-      const deps = storage.getDependencyTasksByParent(taskId);
-      setDependencyTasks(deps);
+  const loadTaskDetails = async () => {
+    try {
+      const taskData = await db.getTaskById(taskId);
+      if (taskData) {
+        setTask(taskData);
+        // Load dependency tasks
+        const deps = await db.getDependenciesForTask(taskId);
+        setDependencyTasks(deps || []);
+      }
+      // Load all users for display
+      const allUsers = await db.getUsers();
+      setUsers(allUsers || []);
+    } catch (error) {
+      console.error('Error loading task details:', error);
+      toast.error('Failed to load task details');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
-  const handleAddResponse = () => {
+  const handleAddResponse = async () => {
     if (!responseText.trim()) {
       toast.error('Please enter a response');
       return;
@@ -39,17 +49,13 @@ const BlockerTaskModal = ({ taskId, onClose, currentUser }) => {
     try {
       // Add comment to task discussion
       const comment = {
-        id: `comment-${Date.now()}-${Math.random()}`,
         taskId: task.id,
-        text: responseText,
-        authorId: currentUser.id,
-        authorName: currentUser.name,
-        authorRole: currentUser.role,
-        createdAt: new Date().toISOString(),
-        type: 'response'
+        userId: currentUser.id,
+        comment: responseText,
+        createdAt: new Date().toISOString()
       };
 
-      storage.addTaskComment(comment);
+      await db.addTaskComment(comment);
 
       // Add activity to timeline
       const activity = {
@@ -63,7 +69,7 @@ const BlockerTaskModal = ({ taskId, onClose, currentUser }) => {
       };
 
       const updatedActivityTimeline = [...(task.activityTimeline || []), activity];
-      storage.updateTask(task.id, { activityTimeline: updatedActivityTimeline });
+      await db.updateTask(task.id, { activityTimeline: updatedActivityTimeline });
 
       // Notify the task owner and blocker creator
       const notificationIds = new Set([task.assignedTo, task.assignedBy]);
@@ -77,28 +83,31 @@ const BlockerTaskModal = ({ taskId, onClose, currentUser }) => {
 
       notificationIds.delete(currentUser.id); // Don't notify self
 
-      notificationIds.forEach(userId => {
-        storage.addNotification({
-          id: `notif-${Date.now()}-${Math.random()}-${userId}`,
+      for (const userId of notificationIds) {
+        await db.createNotification({
           userId,
-          taskId: task.id,
-          message: `${currentUser.name} responded to blocker in task "${task.taskName}"`,
+          title: `Blocker Response in "${task.title}"`,
+          message: `${currentUser.name} responded to blocker in task "${task.title}"`,
           type: 'blocker_response',
-          read: false,
-          createdAt: new Date().toISOString()
+          link: `/tasks/${task.id}`,
+          metadata: {
+            taskId: task.id,
+            taskTitle: task.title,
+            respondedBy: currentUser.name
+          }
         });
-      });
+      }
 
       toast.success('Response added successfully');
       setResponseText('');
-      loadTaskDetails(); // Reload to show updated data
+      await loadTaskDetails(); // Reload to show updated data
     } catch (error) {
       console.error('Error adding response:', error);
       toast.error('Failed to add response');
     }
   };
 
-  const handleMarkAsResolved = () => {
+  const handleMarkAsResolved = async () => {
     try {
       // Update blocker history to mark as resolved
       const blockerHistory = task.blockerHistory || [];
@@ -127,7 +136,7 @@ const BlockerTaskModal = ({ taskId, onClose, currentUser }) => {
         userId: currentUser.id
       };
 
-      storage.updateTask(task.id, {
+      await db.updateTask(task.id, {
         status: TASK_STATUS.IN_PROGRESS,
         blockerHistory: updatedBlockerHistory,
         activityTimeline: [...(task.activityTimeline || []), activity]
@@ -137,17 +146,20 @@ const BlockerTaskModal = ({ taskId, onClose, currentUser }) => {
       const notificationIds = new Set([task.assignedTo, task.assignedBy]);
       notificationIds.delete(currentUser.id);
 
-      notificationIds.forEach(userId => {
-        storage.addNotification({
-          id: `notif-${Date.now()}-${Math.random()}-${userId}`,
+      for (const userId of notificationIds) {
+        await db.createNotification({
           userId,
-          taskId: task.id,
-          message: `${currentUser.name} resolved blocker in task "${task.taskName}"`,
+          title: `Blocker Resolved in "${task.title}"`,
+          message: `${currentUser.name} resolved blocker in task "${task.title}"`,
           type: 'blocker_resolved',
-          read: false,
-          createdAt: new Date().toISOString()
+          link: `/tasks/${task.id}`,
+          metadata: {
+            taskId: task.id,
+            taskTitle: task.title,
+            resolvedBy: currentUser.name
+          }
         });
-      });
+      }
 
       toast.success('Blocker marked as resolved');
       onClose();
@@ -185,8 +197,8 @@ const BlockerTaskModal = ({ taskId, onClose, currentUser }) => {
     );
   }
 
-  const assignedUser = storage.getUserById(task.assignedTo);
-  const assignedByUser = storage.getUserById(task.assignedBy);
+  const assignedUser = users.find(u => u.id === task.assignedTo);
+  const assignedByUser = users.find(u => u.id === task.assignedBy);
   const blockerHistory = task.blockerHistory || [];
   const latestBlocker = blockerHistory[blockerHistory.length - 1];
   const isBlocked = task.status === TASK_STATUS.BLOCKED;
@@ -284,7 +296,7 @@ const BlockerTaskModal = ({ taskId, onClose, currentUser }) => {
                       <span className="text-sm font-semibold text-gray-700">Mentioned:</span>
                       <div className="flex flex-wrap gap-2 mt-1">
                         {latestBlocker.mentions.map(userId => {
-                          const user = storage.getUserById(userId);
+                          const user = users.find(u => u.id === userId);
                           return user ? (
                             <span key={userId} className="px-2 py-1 text-xs bg-orange-200 text-orange-800 rounded-full font-medium">
                               @{user.name}
@@ -374,7 +386,7 @@ const BlockerTaskModal = ({ taskId, onClose, currentUser }) => {
                 ) : (
                   <div className="space-y-2">
                     {dependencyTasks.map(dep => {
-                      const assignedUser = storage.getUserById(dep.assignedTo);
+                      const assignedUser = users.find(u => u.id === dep.assignedTo);
                       const isCompleted = dep.status === DEPENDENCY_STATUS.COMPLETED;
                       return (
                         <div key={dep.id} className={`p-3 rounded-lg border-2 ${

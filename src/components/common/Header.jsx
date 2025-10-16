@@ -7,7 +7,7 @@ import { useLocation } from 'react-router-dom';
 import logo from '../../assets/amwoodo-logo.png';
 import BlockerTaskModal from './BlockerTaskModal';
 import DependencyTaskDetailModal from './DependencyTaskDetailModal';
-import { storage } from '../../utils/storage';
+import { db } from '../../services/databaseService';
 
 const Header = ({ title, navigation }) => {
   const { currentUser, logout } = useAuth();
@@ -109,7 +109,7 @@ const Header = ({ title, navigation }) => {
                       {notifications.slice(0, 10).map(notif => (
                         <div
                           key={notif.id}
-                          onClick={() => {
+                          onClick={async () => {
                             markAsRead(notif.id);
                             if (notif.type === 'dependency_assigned' || notif.type === 'dependency_status_change') {
                               // This is a dependency task notification
@@ -118,11 +118,17 @@ const Header = ({ title, navigation }) => {
                               setShowNotifications(false);
                             } else if (notif.taskId) {
                               // Check if it's a dependency task ID or regular task ID
-                              const isDependencyTask = storage.getDependencyTask(notif.taskId);
-                              if (isDependencyTask) {
-                                setSelectedDependencyTaskId(notif.taskId);
-                                setShowDependencyModal(true);
-                              } else {
+                              try {
+                                const isDependencyTask = await db.getDependencyTask(notif.taskId);
+                                if (isDependencyTask) {
+                                  setSelectedDependencyTaskId(notif.taskId);
+                                  setShowDependencyModal(true);
+                                } else {
+                                  setSelectedTaskId(notif.taskId);
+                                  setShowBlockerModal(true);
+                                }
+                              } catch (error) {
+                                console.error('Error checking task type:', error);
                                 setSelectedTaskId(notif.taskId);
                                 setShowBlockerModal(true);
                               }

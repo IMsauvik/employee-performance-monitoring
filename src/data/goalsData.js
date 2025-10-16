@@ -315,8 +315,8 @@ export const goalCycles = [
 ];
 
 export const initializeGoalsData = () => {
-  const existingGoals = localStorage.getItem('goals');
-  if (!existingGoals) {
-    localStorage.setItem('goals', JSON.stringify(demoGoals));
-  }
+  // Note: This function is now a no-op for database-backed apps
+  // Goals should be managed through the database using the goals API
+  // For seeding data, use the database/schema.sql or create goals through the UI
+  console.log('Goals initialization skipped - using database instead');
 };

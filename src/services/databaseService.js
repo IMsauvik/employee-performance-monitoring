@@ -231,7 +231,7 @@ const databaseService = {
         .eq('id', id)
         .select()
         .single();
-      
+
       if (error) throw error;
       return data;
     } catch (error) {
@@ -247,7 +247,7 @@ const databaseService = {
         .from('users')
         .update({ is_active: false })
         .eq('id', id);
-      
+
       if (error) throw error;
       return true;
     } catch (error) {
@@ -260,7 +260,7 @@ const databaseService = {
     try {
       console.log('Verifying password for:', email);
       const user = await this.getUserByEmail(email);
-      
+
       if (!user) {
         console.log('User not found:', email);
         return null;
@@ -269,61 +269,7 @@ const databaseService = {
       console.log('User found, comparing password...');
       const isValid = await bcryptCompare(password, user.password_hash);
       console.log('Password valid:', isValid);
-      
-      if (!isValid) return null;
 
-      return user;
-    } catch (error) {
-      console.error('Error verifying password:', error);
-      return null;
-    }
-  },
-
-  async updateUser(id, updates) {
-    try {
-      // If password is being updated, hash it
-      if (updates.password) {
-        updates.password_hash = await bcrypt.hash(updates.password, 10);
-        delete updates.password;
-      }
-
-      const { data, error } = await supabase
-        .from('users')
-        .update(updates)
-        .eq('id', id)
-        .select()
-        .single();
-      
-      if (error) throw error;
-      return data;
-    } catch (error) {
-      console.error('Error updating user:', error);
-      throw error;
-    }
-  },
-
-  async deleteUser(id) {
-    try {
-      // Soft delete - set is_active to false
-      const { error } = await supabase
-        .from('users')
-        .update({ is_active: false })
-        .eq('id', id);
-      
-      if (error) throw error;
-      return true;
-    } catch (error) {
-      console.error('Error deleting user:', error);
-      throw error;
-    }
-  },
-
-  async verifyPassword(email, password) {
-    try {
-      const user = await this.getUserByEmail(email);
-      if (!user) return null;
-
-      const isValid = await bcrypt.compare(password, user.password_hash);
       if (!isValid) return null;
 
       return user;
@@ -470,8 +416,23 @@ const databaseService = {
       if (updates.reactions !== undefined) dbUpdates.reactions = updates.reactions;
       if (updates.isBlocked !== undefined) dbUpdates.is_blocked = updates.isBlocked;
       if (updates.blockedReason !== undefined) dbUpdates.blocked_reason = updates.blockedReason;
+      
+      // UI-only fields (don't send to database)
+      // hasNewFeedback is a UI flag, not a database column - ignore it
 
       console.log('🔵 Mapped DB updates:', dbUpdates);
+      
+      // If no fields to update, skip the database call
+      if (Object.keys(dbUpdates).length === 0) {
+        console.log('⚠️ No database fields to update, skipping');
+        // Still fetch and return the current task data
+        const { data: currentTask } = await supabase
+          .from('tasks')
+          .select()
+          .eq('id', id)
+          .single();
+        return dbToTask(currentTask);
+      }
 
       const { data, error } = await supabase
         .from('tasks')

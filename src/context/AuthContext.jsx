@@ -33,13 +33,13 @@ export const AuthProvider = ({ children }) => {
         storage.setCurrentUser(userWithoutPassword);
         setCurrentUser(userWithoutPassword);
 
-        // Log activity
+        // Log activity (async, don't await to avoid blocking login)
         logActivity(
           ActivityTypes.USER_LOGIN,
           { email: user.email },
           user.id,
           user.name
-        );
+        ).catch(err => console.error('Failed to log activity:', err));
 
         return { success: true, user: userWithoutPassword };
       }
@@ -53,13 +53,13 @@ export const AuthProvider = ({ children }) => {
 
   const logout = () => {
     if (currentUser) {
-      // Log activity before logout
+      // Log activity before logout (async, don't await to avoid blocking logout)
       logActivity(
         ActivityTypes.USER_LOGOUT,
         { email: currentUser.email },
         currentUser.id,
         currentUser.name
-      );
+      ).catch(err => console.error('Failed to log activity:', err));
     }
 
     storage.logout();

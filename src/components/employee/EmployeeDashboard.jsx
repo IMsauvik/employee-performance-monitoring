@@ -6,7 +6,7 @@ import { useTasks } from '../../hooks/useTasks';
 import { calculatePerformanceMetrics } from '../../utils/helpers';
 import { TASK_STATUS, DEPENDENCY_STATUS } from '../../utils/taskConstants';
 import EmployeeTasksTable from './EmployeeTasksTable';
-import { storage } from '../../utils/storage';
+import { db } from '../../services/databaseService';
 import DependencyTaskDetailModal from '../common/DependencyTaskDetailModal';
 
 const EmployeeDashboard = () => {
@@ -44,8 +44,16 @@ const EmployeeDashboard = () => {
     });
 
     // Load dependency tasks
-    const deps = storage.getDependencyTasksByAssignee(currentUser.id);
-    setDependencyTasks(deps);
+    const loadDependencies = async () => {
+      try {
+        const deps = await db.getDependencyTasksByAssignee(currentUser.id);
+        setDependencyTasks(deps || []);
+      } catch (error) {
+        console.error('Error loading dependency tasks:', error);
+        setDependencyTasks([]);
+      }
+    };
+    loadDependencies();
   }, [tasks, currentUser.id]);
 
   const filteredTasks = tasks.filter(task => {
@@ -245,7 +253,7 @@ const EmployeeDashboard = () => {
                   return true;
                 })
                 .map(dep => {
-                const parentTask = storage.getTask(dep.parentTaskId);
+                const parentTask = tasks.find(t => t.id === dep.parentTaskId);
                 const isCompleted = dep.status === DEPENDENCY_STATUS.COMPLETED;
                 const isInProgress = dep.status === DEPENDENCY_STATUS.IN_PROGRESS;
 
@@ -281,7 +289,7 @@ const EmployeeDashboard = () => {
                     <div className="space-y-1 text-xs text-gray-600 mb-3">
                       <div className="flex items-center gap-1">
                         <Link className="w-3 h-3" />
-                        <span>For: {parentTask?.taskName || 'Unknown task'}</span>
+                        <span>For: {parentTask?.title || 'Unknown task'}</span>
                       </div>
                       <div className="flex items-center gap-1">
                         <Calendar className="w-3 h-3" />
@@ -310,11 +318,15 @@ const EmployeeDashboard = () => {
       {selectedDependencyId && (
         <DependencyTaskDetailModal
           dependencyTaskId={selectedDependencyId}
-          onClose={() => {
+          onClose={async () => {
             setSelectedDependencyId(null);
             // Reload dependency tasks
-            const deps = storage.getDependencyTasksByAssignee(currentUser.id);
-            setDependencyTasks(deps);
+            try {
+              const deps = await db.getDependencyTasksByAssignee(currentUser.id);
+              setDependencyTasks(deps || []);
+            } catch (error) {
+              console.error('Error reloading dependency tasks:', error);
+            }
           }}
           currentUser={currentUser}
         />

@@ -1,6 +1,5 @@
 // Activity Logger for tracking user actions
-
-const ACTIVITY_LOG_KEY = 'activity_logs';
+import { supabase } from '../config/supabase';
 
 export const ActivityTypes = {
   TASK_CREATED: 'task_created',
@@ -13,56 +12,93 @@ export const ActivityTypes = {
   USER_DELETED: 'user_deleted'
 };
 
-export const logActivity = (activityType, details, userId, userName) => {
+export const logActivity = async (activityType, details, userId, userName) => {
   try {
-    const logs = getActivityLogs();
-
     const newLog = {
-      id: generateId(),
-      type: activityType,
-      details,
-      userId,
-      userName,
-      timestamp: new Date().toISOString()
+      user_id: userId,
+      action_type: activityType,
+      entity_type: getEntityType(activityType),
+      entity_id: details.id || details.taskId || details.userId || null,
+      description: getActivityDescription({ type: activityType, details }),
+      metadata: details,
+      created_at: new Date().toISOString()
     };
 
-    logs.unshift(newLog); // Add to beginning
+    const { data, error } = await supabase
+      .from('activity_log')
+      .insert([newLog])
+      .select()
+      .single();
 
-    // Keep only last 500 logs to avoid storage issues
-    const trimmedLogs = logs.slice(0, 500);
+    if (error) {
+      console.error('Error logging activity to database:', error);
+      return null;
+    }
 
-    localStorage.setItem(ACTIVITY_LOG_KEY, JSON.stringify(trimmedLogs));
-
-    return newLog;
+    return data;
   } catch (error) {
     console.error('Error logging activity:', error);
     return null;
   }
 };
 
-export const getActivityLogs = () => {
+export const getActivityLogs = async (limit = 100) => {
   try {
-    const logs = localStorage.getItem(ACTIVITY_LOG_KEY);
-    return logs ? JSON.parse(logs) : [];
+    const { data, error } = await supabase
+      .from('activity_log')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    if (error) {
+      console.error('Error retrieving activity logs:', error);
+      return [];
+    }
+
+    return data || [];
   } catch (error) {
     console.error('Error retrieving activity logs:', error);
     return [];
   }
 };
 
-export const getUserActivityLogs = (userId, limit = 50) => {
-  const allLogs = getActivityLogs();
-  return allLogs.filter(log => log.userId === userId).slice(0, limit);
-};
-
-export const getRecentActivityLogs = (limit = 20) => {
-  const allLogs = getActivityLogs();
-  return allLogs.slice(0, limit);
-};
-
-export const clearActivityLogs = () => {
+export const getUserActivityLogs = async (userId, limit = 50) => {
   try {
-    localStorage.setItem(ACTIVITY_LOG_KEY, JSON.stringify([]));
+    const { data, error } = await supabase
+      .from('activity_log')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    if (error) {
+      console.error('Error retrieving user activity logs:', error);
+      return [];
+    }
+
+    return data || [];
+  } catch (error) {
+    console.error('Error retrieving user activity logs:', error);
+    return [];
+  }
+};
+
+export const getRecentActivityLogs = async (limit = 20) => {
+  return getActivityLogs(limit);
+};
+
+export const clearActivityLogs = async () => {
+  try {
+    const { error } = await supabase
+      .from('activity_log')
+      .delete()
+      .neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all except impossible ID
+
+    if (error) {
+      console.error('Error clearing activity logs:', error);
+      return false;
+    }
+
     return true;
   } catch (error) {
     console.error('Error clearing activity logs:', error);
@@ -70,8 +106,12 @@ export const clearActivityLogs = () => {
   }
 };
 
-const generateId = () => {
-  return Date.now().toString(36) + Math.random().toString(36).substr(2);
+// Helper function to determine entity type from activity type
+const getEntityType = (activityType) => {
+  if (activityType.startsWith('TASK_')) return 'task';
+  if (activityType.startsWith('USER_')) return 'user';
+  if (activityType.startsWith('GOAL_')) return 'goal';
+  return 'other';
 };
 
 export const getActivityDescription = (activity) => {

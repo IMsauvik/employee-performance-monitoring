@@ -34,9 +34,8 @@ const CreateDependencyModal = ({ parentTask, blocker, onClose, onDependenciesCre
     loadUsers();
 
     // Pre-populate with mentioned users if available
-    if (blocker && blocker.mentions && blocker.mentions.length > 0) {
+    if (blocker && blocker.mentions && blocker.mentions.length > 0 && availableUsers.length > 0) {
       const mentionedDependencies = blocker.mentions.map((userId, index) => {
-        const user = storage.getUserById(userId);
         return {
           id: `temp-${Date.now()}-${index}`,
           title: `Help resolve: ${blocker.reason.substring(0, 50)}...`,

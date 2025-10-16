@@ -230,23 +230,23 @@ export const demoTasks = [
   }
 ];
 
-// Initialize demo data in localStorage if not exists
-export const initializeDemoData = () => {
-  // Check if we need to update users (for admin user addition)
-  const existingUsers = localStorage.getItem('users');
-  if (!existingUsers) {
-    localStorage.setItem('users', JSON.stringify(demoUsers));
-  } else {
-    // Check if admin user exists
-    const users = JSON.parse(existingUsers);
-    const hasAdmin = users.some(u => u.role === 'admin');
-    if (!hasAdmin) {
-      // Force update with admin user
-      localStorage.setItem('users', JSON.stringify(demoUsers));
-    }
-  }
+// Initialize demo data in database if not exists
+export const initializeDemoData = async () => {
+  try {
+    // Note: This function is now a no-op for database-backed apps
+    // The database should be seeded using SQL scripts in /database folder
+    // Specifically, use database/schema.sql which already includes demo users
 
-  if (!localStorage.getItem('tasks')) {
-    localStorage.setItem('tasks', JSON.stringify(demoTasks));
+    // For local development, ensure you have:
+    // 1. Created a Supabase project
+    // 2. Run the database/schema.sql script
+    // 3. Run the database/complete-migration.sql script (for additional columns)
+
+    console.log('Demo data initialization skipped - using database seeding instead');
+
+    // If you need to manually seed the database, use the database/schema.sql file
+    // which contains INSERT statements for demo users
+  } catch (error) {
+    console.error('Error initializing demo data:', error);
   }
 };
