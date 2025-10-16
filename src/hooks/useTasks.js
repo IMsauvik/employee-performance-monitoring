@@ -33,8 +33,9 @@ export const useTasks = (userId = null, role = null) => {
 
   const addTask = async (task) => {
     try {
-      await db.createTask(task);
+      const createdTask = await db.createTask(task);
       await loadTasks();
+      return createdTask; // Return the created task with database-generated ID
     } catch (error) {
       console.error('Error adding task:', error);
       throw error;
