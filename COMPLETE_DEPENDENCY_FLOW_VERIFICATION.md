@@ -3,29 +3,34 @@
 ## 📋 THE COMPLETE FLOW (As It Should Work)
 
 ### Step 1: Employee Blocks Task
+
 1. Employee opens task in `EmployeeTaskDetailModal`
-2. Changes status to "BLOCKED"  
+2. Changes status to "BLOCKED"
 3. `showBlockedModal` opens
 4. Enters reason and mentions users (optional)
 5. Submits blocker
 
 **Expected Result**:
+
 - Task status → BLOCKED
 - `blockerHistory` array updated with blocker entry
 - `isBlocked` flag set to true
 - Mentioned users get notifications
 
 ### Step 2: Manager Views Blocked Task
+
 1. Manager opens blocked task
 2. Views in `TaskDetailModal` or `BlockerTaskModal`
 3. Sees blocker reason and "Dependency Tasks" section
 4. Clicks **"Create Dependencies"** button
 
 **Expected Result**:
+
 - `CreateDependencyModal` opens
 - Shows parent task info and blocker reason
 
 ### Step 3: Manager Creates Dependency Tasks
+
 1. In `CreateDependencyModal`:
    - Enter dependency title
    - Enter description
@@ -34,61 +39,72 @@
 2. Click "Create"
 
 **Expected Result**:
+
 - Dependency tasks INSERT into `dependency_tasks` table with UUID
 - Each assigned employee gets notification
 - Parent task's `blockerHistory` updated with dependency IDs
 - Success toast appears
 
 ### Step 4: Assigned Employee Views Dependencies
+
 1. Employee logs in
 2. Goes to "My Tasks" dashboard (`EmployeeDashboard.jsx`)
 3. Sees **"Dependency Tasks Assigned to You"** section
 4. Views dependency cards with status
 
 **Expected Result**:
+
 - Section appears (only if `dependencyTasks.length > 0`)
 - Shows cards: Not Started, In Progress, Completed tabs
 - Displays task details and parent task reference
 
 ### Step 5: Employee Opens Dependency
+
 1. Employee clicks on dependency card
 2. `DependencyTaskDetailModal` opens
 
 **Expected Result**:
+
 - Modal shows:
   - Dependency title & description
-  - Parent task reference  
+  - Parent task reference
   - Status selector
   - Progress notes section
   - Activity timeline
   - Submit button
 
 ### Step 6: Employee Works on Dependency
+
 1. Updates status: Not Started → In Progress
 2. Adds progress notes
 3. Eventually marks as "Completed"
 
 **Expected Result**:
+
 - Status updates save to database
 - Progress notes append to array
 - Activity timeline updates
 - Parent task owner gets notification
 
 ### Step 7: Manager Reviews & Accepts
+
 1. Manager opens parent (blocked) task
 2. Views dependency tasks list
 3. Sees completed dependency
 4. Clicks **"Accept"** button
 
 **Expected Result**:
+
 - Dependency marked as accepted
 - `acceptedBy`, `acceptedAt` fields updated
 - Assignee gets notification
 
 ### Step 8: Auto-Unblock Parent Task
+
 When ALL dependencies for a blocker are accepted:
 
 **Expected Result**:
+
 - Parent task status → IN_PROGRESS automatically
 - Blocker marked as `resolved: true`
 - `resolvedBy`, `resolvedAt`, `autoResolved: true` set
@@ -101,16 +117,20 @@ When ALL dependencies for a blocker are accepted:
 ### Issue 1: "Create Dependencies" Button Not Showing
 
 **Check in `BlockerTaskModal.jsx`**:
+
 ```javascript
 // Line ~368
-{currentUser.role !== 'employee' && (
-  <button onClick={() => setShowCreateDependency(true)}>
-    Create Dependencies
-  </button>
-)}
+{
+  currentUser.role !== "employee" && (
+    <button onClick={() => setShowCreateDependency(true)}>
+      Create Dependencies
+    </button>
+  );
+}
 ```
 
 **Possible Problems**:
+
 - User role is 'employee' (only managers/admins can create)
 - `isBlocked` is false
 - Button exists but modal doesn't open
@@ -120,12 +140,14 @@ When ALL dependencies for a blocker are accepted:
 ### Issue 2: Dependencies Not Saving
 
 **Check Console Logs** (we added these):
+
 ```
 🔵 Creating dependency task: {...}
 ✅ Dependency task created with ID: [uuid]
 ```
 
 **If you see errors**:
+
 - Check database INSERT errors
 - Verify assigned user exists
 - Check RLS policies allow INSERT
@@ -135,12 +157,14 @@ When ALL dependencies for a blocker are accepted:
 ### Issue 3: Dependencies Not Showing in Dashboard
 
 **Check Console Logs**:
+
 ```
 🔵 Loading dependency tasks for user: [uuid]
 📊 Found X dependency tasks
 ```
 
 **If "Found 0"**:
+
 - Check if dependencies were actually created
 - Verify `assigned_to` matches current user ID
 - Check RLS policies allow SELECT
@@ -150,12 +174,14 @@ When ALL dependencies for a blocker are accepted:
 ### Issue 4: Dependency Modal Not Opening
 
 **Check in `EmployeeDashboard.jsx`**:
+
 ```javascript
 // Line ~260
 onClick={() => setSelectedDependencyId(dep.id)}
 ```
 
 **Check if**:
+
 - `selectedDependencyId` is set
 - `DependencyTaskDetailModal` is rendered
 - Modal has proper z-index
@@ -165,15 +191,17 @@ onClick={() => setSelectedDependencyId(dep.id)}
 ### Issue 5: Accept Button Not Working
 
 **Check in `EmployeeTaskDetailModal.jsx`** or wherever accept is:
+
 ```javascript
 await db.updateFullDependencyTask(dependencyId, {
   acceptedBy: currentUser.id,
   acceptedAt: now,
-  status: 'accepted'
+  status: "accepted",
 });
 ```
 
 **Possible Problems**:
+
 - Update fails silently
 - Wrong dependency ID
 - RLS policy blocks UPDATE
@@ -185,12 +213,14 @@ await db.updateFullDependencyTask(dependencyId, {
 ## 🧪 TESTING CHECKLIST
 
 ### Pre-Test Setup
+
 - [ ] Database has `dependency_tasks` table
 - [ ] RLS policies are configured
 - [ ] At least 2 users: 1 employee, 1 manager
 - [ ] At least 1 task assigned to employee
 
 ### Test 1: Block Task ✅
+
 - [ ] Login as employee
 - [ ] Open task
 - [ ] Change status to "BLOCKED"
@@ -201,6 +231,7 @@ await db.updateFullDependencyTask(dependencyId, {
 - [ ] **Verify**: Console shows blocker saved
 
 ### Test 2: Create Dependencies ✅
+
 - [ ] Login as manager/admin
 - [ ] Open blocked task
 - [ ] See "Create Dependencies" button
@@ -214,6 +245,7 @@ await db.updateFullDependencyTask(dependencyId, {
 - [ ] **Verify**: Dependency appears in blocked task's list
 
 ### Test 3: View Dependencies in Dashboard ✅
+
 - [ ] Login as assigned employee
 - [ ] Go to "My Tasks" dashboard
 - [ ] **Verify**: Console shows "✅ Dependency tasks loaded: X tasks"
@@ -222,6 +254,7 @@ await db.updateFullDependencyTask(dependencyId, {
 - [ ] **Verify**: Status shows "NOT STARTED"
 
 ### Test 4: Open Dependency Modal ✅
+
 - [ ] Click on dependency card
 - [ ] **Verify**: `DependencyTaskDetailModal` opens
 - [ ] **Verify**: Shows title, description, parent task
@@ -229,6 +262,7 @@ await db.updateFullDependencyTask(dependencyId, {
 - [ ] **Verify**: Has progress notes section
 
 ### Test 5: Update Dependency ✅
+
 - [ ] Change status to "In Progress"
 - [ ] Add a progress note
 - [ ] Click save/update
@@ -238,6 +272,7 @@ await db.updateFullDependencyTask(dependencyId, {
 - [ ] **Verify**: Changes persisted
 
 ### Test 6: Complete Dependency ✅
+
 - [ ] Change status to "Completed"
 - [ ] **Verify**: Success message
 - [ ] **Verify**: Notification sent to task owner
@@ -245,6 +280,7 @@ await db.updateFullDependencyTask(dependencyId, {
 - [ ] **Verify**: Status shows "COMPLETED"
 
 ### Test 7: Accept Dependency ✅
+
 - [ ] Login as manager (task owner)
 - [ ] Open blocked task
 - [ ] View dependency tasks list
@@ -254,6 +290,7 @@ await db.updateFullDependencyTask(dependencyId, {
 - [ ] **Verify**: Assignee notified
 
 ### Test 8: Auto-Unblock ✅
+
 - [ ] After accepting all dependencies
 - [ ] **Verify**: Parent task status → "IN_PROGRESS"
 - [ ] **Verify**: Blocker marked as resolved
@@ -269,6 +306,7 @@ await db.updateFullDependencyTask(dependencyId, {
 **In your screenshot**, I see "Mentioned:" with no users.
 
 **Check in `EmployeeTaskDetailModal.jsx`** where blocker is created:
+
 ```javascript
 const blockerEntry = {
   id: `blocker-${Date.now()}`,
@@ -277,7 +315,7 @@ const blockerEntry = {
   blockedAt: now,
   reason: blockerComment,
   mentions: mentionedUsers, // ✅ This should be here
-  resolved: false
+  resolved: false,
 };
 ```
 
@@ -286,15 +324,20 @@ const blockerEntry = {
 ### Fix 2: Ensure Create Dependencies Button Appears
 
 Add this check in `BlockerTaskModal.jsx`:
+
 ```javascript
-console.log('Current user role:', currentUser.role);
-console.log('Is blocked:', isBlocked);
-console.log('Should show button:', isBlocked && currentUser.role !== 'employee');
+console.log("Current user role:", currentUser.role);
+console.log("Is blocked:", isBlocked);
+console.log(
+  "Should show button:",
+  isBlocked && currentUser.role !== "employee"
+);
 ```
 
 ### Fix 3: Force Dashboard Section to Show (For Testing)
 
 Temporarily change in `EmployeeDashboard.jsx`:
+
 ```javascript
 // Line ~187
 {true && (  // Always show for testing
@@ -314,8 +357,9 @@ Temporarily change in `EmployeeDashboard.jsx`:
 ## 🔍 DIAGNOSTIC SQL QUERIES
 
 ### Check if Dependencies Exist
+
 ```sql
-SELECT 
+SELECT
     id,
     title,
     status,
@@ -330,16 +374,18 @@ LIMIT 10;
 ```
 
 ### Check Specific User's Dependencies
+
 ```sql
-SELECT * 
-FROM dependency_tasks 
+SELECT *
+FROM dependency_tasks
 WHERE assigned_to = 'YOUR_EMPLOYEE_USER_UUID'
 ORDER BY created_at DESC;
 ```
 
 ### Check Blocked Tasks
+
 ```sql
-SELECT 
+SELECT
     id,
     title,
     status,
@@ -351,14 +397,16 @@ ORDER BY updated_at DESC;
 ```
 
 ### Check if Table Exists
+
 ```sql
 SELECT EXISTS (
-    SELECT FROM information_schema.tables 
+    SELECT FROM information_schema.tables
     WHERE table_name = 'dependency_tasks'
 );
 ```
 
 ### Manually Insert Test Dependency
+
 ```sql
 INSERT INTO dependency_tasks (
     title,
@@ -392,12 +440,14 @@ INSERT INTO dependency_tasks (
 ## 📊 EXPECTED CONSOLE OUTPUT
 
 ### When Creating Dependency:
+
 ```
 🔵 Creating dependency task: {title: "Fix bug", assignedTo: "abc-123", ...}
 ✅ Dependency task created with ID: def-456-uuid
 ```
 
 ### When Loading Dashboard:
+
 ```
 🔵 Loading dependency tasks for user: abc-123
 🔵 Querying dependency_tasks for assignee: abc-123
@@ -407,6 +457,7 @@ INSERT INTO dependency_tasks (
 ```
 
 ### When Opening Modal:
+
 ```
 🔵 Opening dependency modal for ID: def-456
 ✅ Dependency task loaded: {title: "Fix bug", ...}
@@ -417,6 +468,7 @@ INSERT INTO dependency_tasks (
 ## ✅ SUMMARY
 
 **The flow SHOULD work as**:
+
 1. Employee blocks task → Manager sees blocker
 2. Manager clicks "Create Dependencies" → Modal opens
 3. Manager creates dependencies → Saves to `dependency_tasks` table
@@ -427,6 +479,7 @@ INSERT INTO dependency_tasks (
 8. All accepted → Parent task auto-unblocks
 
 **If NOT working**:
+
 - Check console logs for errors
 - Run diagnostic SQL queries
 - Verify RLS policies
@@ -434,6 +487,7 @@ INSERT INTO dependency_tasks (
 - Test with manual SQL insert
 
 **All code is in place!** The issue is likely:
+
 - Dependencies not being created (check console)
 - Data not loading (check SQL query)
 - RLS blocking access (check policies)

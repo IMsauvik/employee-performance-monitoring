@@ -86,16 +86,20 @@ const DependencyTaskDetailModal = ({ dependencyTaskId, onClose, currentUser }) =
 
       // Notify parent task owner
       if (parentTask && parentTask.id && parentTask.assignedTo) {
-        await db.createNotification({
-          userId: parentTask.assignedTo,
-          taskId: depTask.id,
-          message: `${currentUser.name || 'Someone'} completed dependency task: "${depTask.title}"`,
-          type: 'dependency_completed',
-          metadata: {
-            dependencyId: depTask.id,
-            dependencyTitle: depTask.title
-          }
-        });
+        try {
+          await db.createNotification({
+            userId: parentTask.assignedTo,
+            taskId: depTask.id,
+            message: `${currentUser.name || 'Someone'} completed dependency task: "${depTask.title}"`,
+            type: 'dependency_completed',
+            metadata: {
+              dependencyId: depTask.id,
+              dependencyTitle: depTask.title
+            }
+          });
+        } catch (error) {
+          console.warn('Failed to send notification:', error);
+        }
 
         // Add activity to parent task timeline
         const parentActivity = {
@@ -126,30 +130,38 @@ const DependencyTaskDetailModal = ({ dependencyTaskId, onClose, currentUser }) =
 
     // Notify assignedBy user (person who assigned this dependency)
     if (depTask.assignedBy) {
-      await db.createNotification({
-        userId: depTask.assignedBy,
-        taskId: depTask.parentTaskId || depTask.id, // Use parentTaskId or fallback to depTask.id
-        message: `Dependency task "${depTask.title}" is now ${newStatus.replace('_', ' ')}`,
-        type: 'dependency_status_change',
-        metadata: {
-          dependencyId: depTask.id,
-          newStatus
-        }
-      });
+      try {
+        await db.createNotification({
+          userId: depTask.assignedBy,
+          taskId: depTask.parentTaskId || depTask.id,
+          message: `Dependency task "${depTask.title}" is now ${newStatus.replace('_', ' ')}`,
+          type: 'dependency_status_change',
+          metadata: {
+            dependencyId: depTask.id,
+            newStatus
+          }
+        });
+      } catch (error) {
+        console.warn('Failed to send notification:', error);
+      }
     }
 
     // Also notify parent task assignee if different from assignedBy
     if (parentTask && parentTask.id && parentTask.assignedTo && parentTask.assignedTo !== depTask.assignedBy) {
-      await db.createNotification({
-        userId: parentTask.assignedTo,
-        taskId: parentTask.id,
-        message: `Dependency task "${depTask.title}" is now ${newStatus.replace('_', ' ')}`,
-        type: 'dependency_status_change',
-        metadata: {
-          dependencyId: depTask.id,
-          newStatus
-        }
-      });
+      try {
+        await db.createNotification({
+          userId: parentTask.assignedTo,
+          taskId: parentTask.id,
+          message: `Dependency task "${depTask.title}" is now ${newStatus.replace('_', ' ')}`,
+          type: 'dependency_status_change',
+          metadata: {
+            dependencyId: depTask.id,
+            newStatus
+          }
+        });
+      } catch (error) {
+        console.warn('Failed to send notification:', error);
+      }
     }
 
     toast.success(`Status updated to ${newStatus.replace('_', ' ')}`);
@@ -235,17 +247,40 @@ const DependencyTaskDetailModal = ({ dependencyTaskId, onClose, currentUser }) =
       return;
     }
 
+    if (!parentTask || !parentTask.id) {
+      toast.error('Parent task not found');
+      return;
+    }
+
     const now = new Date().toISOString();
     const note = {
       id: `note-${Date.now()}`,
-      text: progressNote,
-      authorId: currentUser.id,
-      authorName: currentUser.name,
-      timestamp: now
+      note: progressNote,
+      addedBy: currentUser.id,
+      addedByName: currentUser.name,
+      timestamp: now,
+      source: 'dependency' // Mark that this came from a dependency task assignee
     };
 
     const activity = {
       id: `activity-${Date.now()}`,
+      type: 'PROGRESS_NOTE',
+      title: 'Progress Note Added (Dependency Helper)',
+      description: `${currentUser.name} (helping with blocker): ${progressNote}`,
+      timestamp: now,
+      userName: currentUser.name,
+      userId: currentUser.id
+    };
+
+    // Add note to PARENT task so everyone sees it
+    await db.updateTask(parentTask.id, {
+      progressNotes: [...(parentTask.progressNotes || []), note],
+      activityTimeline: [...(parentTask.activityTimeline || []), activity]
+    });
+
+    // Also update dependency task activity timeline
+    const depActivity = {
+      id: `activity-${Date.now()}-dep`,
       type: 'PROGRESS_NOTE',
       title: 'Progress Note Added',
       description: progressNote,
@@ -255,11 +290,10 @@ const DependencyTaskDetailModal = ({ dependencyTaskId, onClose, currentUser }) =
     };
 
     await db.updateFullDependencyTask(depTask.id, {
-      progressNotes: [...(depTask.progressNotes || []), note],
-      activityTimeline: [...(depTask.activityTimeline || []), activity]
+      activityTimeline: [...(depTask.activityTimeline || []), depActivity]
     });
 
-    toast.success('Progress note added');
+    toast.success('Progress note added to parent task conversation');
     setProgressNote('');
     await loadTaskDetails();
   };
@@ -385,47 +419,184 @@ const DependencyTaskDetailModal = ({ dependencyTaskId, onClose, currentUser }) =
             />
           </div>
 
-          {/* Progress Notes */}
-          {canEdit && (
-            <div className="bg-white rounded-lg border-2 border-gray-200 p-4">
-              <h4 className="font-bold text-gray-900 mb-3 flex items-center gap-2">
-                <MessageCircle className="w-5 h-5 text-purple-600" />
-                Add Progress Note
+          {/* Work Updates & Feedback - Shared with Parent Task */}
+          <div className="bg-gradient-to-br from-blue-50 via-purple-50 to-green-50 rounded-xl border-2 border-gray-200 p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h4 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                <MessageCircle className="w-6 h-6 text-purple-600" />
+                Work Updates & Feedback
               </h4>
-              <textarea
-                value={progressNote}
-                onChange={(e) => setProgressNote(e.target.value)}
-                placeholder="Share your progress, challenges, or updates..."
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-                rows={3}
-              />
-              <button
-                onClick={handleAddProgressNote}
-                disabled={!progressNote.trim()}
-                className="mt-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition font-medium"
-              >
-                Add Note
-              </button>
+              <span className="text-xs bg-blue-100 text-blue-700 px-3 py-1 rounded-full font-semibold">
+                Shared Conversation
+              </span>
             </div>
-          )}
 
-          {/* Previous Progress Notes */}
-          {depTask.progressNotes && depTask.progressNotes.length > 0 && (
-            <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-              <h4 className="font-bold text-gray-900 mb-3">Progress History</h4>
-              <div className="space-y-3">
-                {depTask.progressNotes.map(note => (
-                  <div key={note.id} className="bg-white p-3 rounded-lg border border-gray-200">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="font-medium text-gray-900">{note.authorName}</span>
-                      <span className="text-xs text-gray-500">{formatDateTime(note.timestamp)}</span>
-                    </div>
-                    <p className="text-sm text-gray-700">{note.text}</p>
-                  </div>
-                ))}
-              </div>
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+              <p className="text-sm text-blue-800">
+                💬 This conversation is shared between the task owner, manager, and all dependency helpers. Everyone can see all messages.
+              </p>
             </div>
-          )}
+
+            {/* Add New Progress Note */}
+            {canEdit && (
+              <div className="bg-white rounded-lg border-2 border-gray-200 p-4 mb-4">
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Add Your Progress Update
+                </label>
+                <div className="relative">
+                  <textarea
+                    value={progressNote}
+                    onChange={(e) => setProgressNote(e.target.value)}
+                    rows="3"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition resize-none"
+                    placeholder="Share your progress, challenges, or updates on resolving this blocker..."
+                  />
+                </div>
+                <button
+                  onClick={handleAddProgressNote}
+                  disabled={!progressNote.trim()}
+                  className="mt-3 px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white rounded-lg transition shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed font-medium flex items-center gap-2"
+                >
+                  <MessageCircle className="w-4 h-4" />
+                  Post Update
+                </button>
+              </div>
+            )}
+
+            {/* Unified Timeline - Show Parent Task's Progress Notes & Manager Feedback */}
+            {(() => {
+              if (!parentTask) return null;
+
+              // Combine all updates into a unified timeline
+              const allUpdates = [];
+
+              // Add progress notes from parent task
+              if (parentTask.progressNotes && parentTask.progressNotes.length > 0) {
+                parentTask.progressNotes.forEach(note => {
+                  allUpdates.push({
+                    id: note.id,
+                    type: note.source === 'dependency' ? 'dependency_progress' : 'progress',
+                    text: note.note,
+                    authorName: note.addedByName || 'Employee',
+                    authorId: note.addedBy,
+                    timestamp: note.timestamp
+                  });
+                });
+              }
+
+              // Add manager feedback from parent task
+              if (parentTask.managerFeedback) {
+                let feedbackArray = [];
+                
+                if (typeof parentTask.managerFeedback === 'string') {
+                  try {
+                    const parsed = JSON.parse(parentTask.managerFeedback);
+                    feedbackArray = Array.isArray(parsed) ? parsed : [parsed];
+                  } catch {
+                    feedbackArray = [{ 
+                      id: 'legacy', 
+                      text: parentTask.managerFeedback, 
+                      timestamp: new Date().toISOString(), 
+                      authorName: 'Manager' 
+                    }];
+                  }
+                } else if (Array.isArray(parentTask.managerFeedback)) {
+                  feedbackArray = parentTask.managerFeedback;
+                } else if (typeof parentTask.managerFeedback === 'object') {
+                  feedbackArray = [parentTask.managerFeedback];
+                }
+
+                feedbackArray.forEach((fb, idx) => {
+                  allUpdates.push({
+                    id: fb.id || `feedback-${idx}`,
+                    type: 'feedback',
+                    text: fb.text || fb,
+                    authorName: fb.authorName || 'Manager',
+                    authorId: fb.authorId,
+                    timestamp: fb.timestamp || new Date().toISOString()
+                  });
+                });
+              }
+
+              // Sort by timestamp (newest first)
+              allUpdates.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+              return allUpdates.length > 0 ? (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="h-px flex-1 bg-gray-300"></div>
+                    <span className="text-sm font-semibold text-gray-600 uppercase tracking-wide">
+                      Timeline ({allUpdates.length} Updates)
+                    </span>
+                    <div className="h-px flex-1 bg-gray-300"></div>
+                  </div>
+
+                  {allUpdates.map((update) => (
+                    <div 
+                      key={update.id} 
+                      className={`rounded-lg p-4 border-l-4 shadow-sm hover:shadow-md transition animate-fadeIn ${
+                        update.type === 'feedback'
+                          ? 'bg-green-50 border-green-500'
+                          : update.type === 'dependency_progress'
+                          ? 'bg-purple-50 border-purple-500'
+                          : 'bg-blue-50 border-blue-500'
+                      }`}
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
+                          update.type === 'feedback'
+                            ? 'bg-green-500'
+                            : update.type === 'dependency_progress'
+                            ? 'bg-purple-500'
+                            : 'bg-blue-500'
+                        }`}>
+                          <span className="text-white text-sm font-bold">
+                            {update.authorName.charAt(0).toUpperCase()}
+                          </span>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-2 mb-1">
+                            <div className="flex items-center gap-2">
+                              <span className="font-semibold text-gray-900">
+                                {update.authorName}
+                              </span>
+                              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                                update.type === 'feedback'
+                                  ? 'bg-green-200 text-green-800'
+                                  : update.type === 'dependency_progress'
+                                  ? 'bg-purple-200 text-purple-800'
+                                  : 'bg-blue-200 text-blue-800'
+                              }`}>
+                                {update.type === 'feedback' 
+                                  ? '💬 Manager Feedback' 
+                                  : update.type === 'dependency_progress'
+                                  ? '🔗 Dependency Helper'
+                                  : '📝 Progress Update'}
+                              </span>
+                            </div>
+                            <span className="text-xs text-gray-500 whitespace-nowrap">
+                              {formatDateTime(update.timestamp)}
+                            </span>
+                          </div>
+                          <p className="text-sm text-gray-800 leading-relaxed whitespace-pre-wrap">
+                            {update.text}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="bg-white border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+                  <MessageCircle className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                  <p className="text-sm text-gray-600 font-medium">No updates yet</p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Be the first to share an update on resolving this blocker!
+                  </p>
+                </div>
+              );
+            })()}
+          </div>
 
           {/* Activity Timeline */}
           {depTask.activityTimeline && depTask.activityTimeline.length > 0 && (
