@@ -11,6 +11,7 @@ ALTER TABLE tasks DISABLE ROW LEVEL SECURITY;
 ALTER TABLE task_progress_notes DISABLE ROW LEVEL SECURITY;
 ALTER TABLE task_comments DISABLE ROW LEVEL SECURITY;
 ALTER TABLE task_dependencies DISABLE ROW LEVEL SECURITY;
+ALTER TABLE dependency_tasks DISABLE ROW LEVEL SECURITY;
 ALTER TABLE goals DISABLE ROW LEVEL SECURITY;
 ALTER TABLE activity_log DISABLE ROW LEVEL SECURITY;
 ALTER TABLE notifications DISABLE ROW LEVEL SECURITY;
@@ -31,6 +32,11 @@ DROP POLICY IF EXISTS "Users can view comments" ON task_comments;
 DROP POLICY IF EXISTS "Users can create comments" ON task_comments;
 DROP POLICY IF EXISTS "Users can update own comments" ON task_comments;
 DROP POLICY IF EXISTS "Users can delete own comments" ON task_comments;
+
+DROP POLICY IF EXISTS "Users can view their dependency tasks" ON dependency_tasks;
+DROP POLICY IF EXISTS "Managers and task owners can create dependency tasks" ON dependency_tasks;
+DROP POLICY IF EXISTS "Assignees can update dependency tasks" ON dependency_tasks;
+DROP POLICY IF EXISTS "Admins and managers can delete dependency tasks" ON dependency_tasks;
 
 -- Success message
 DO $$

@@ -56,7 +56,18 @@ const EmployeeDashboard = () => {
         setDependencyTasks([]);
       }
     };
+
+    // Initial load
     loadDependencies();
+
+    // Set up auto-refresh every 10 seconds to catch new dependency tasks
+    const refreshInterval = setInterval(() => {
+      console.log('🔄 Auto-refreshing dependency tasks...');
+      loadDependencies();
+    }, 10000); // Refresh every 10 seconds
+
+    // Cleanup interval on unmount
+    return () => clearInterval(refreshInterval);
   }, [tasks, currentUser.id]);
 
   const filteredTasks = tasks.filter(task => {

@@ -223,10 +223,8 @@ const EmployeeTaskDetailModal = ({ task, onClose, onUpdate }) => {
       return;
     }
 
-    if (mentionedUsers.length === 0) {
-      toast.error('Please mention at least one person to help resolve this blocker');
-      return;
-    }
+    // Mentions are optional - user can create blocker without mentioning anyone
+    // Manager will be notified automatically
 
     const now = new Date().toISOString();
     setStatus(TASK_STATUS.BLOCKED);
@@ -321,22 +319,67 @@ const EmployeeTaskDetailModal = ({ task, onClose, onUpdate }) => {
       }
     }
 
-    // Create dependency tasks for each mentioned user
-    // Note: Dependencies should link to actual blocking tasks
-    // For now, we skip creating invalid dependencies
-    // TODO: Implement proper blocker task creation workflow
+    // Create dependency tasks for each mentioned user automatically
     const createdDependencies = [];
-    
-    // If you want to create actual dependency tasks, you need to:
-    // 1. Create a blocker task first
-    // 2. Then link it using the blocker task's UUID
-    // Example:
-    // const blockerTask = await db.createTask({...});
-    // const dependency = await db.createDependencyTask({
-    //   taskId: task.id,
-    //   dependsOnTaskId: blockerTask.id,  // Use actual task UUID
-    //   dependencyType: 'blocker'
-    // });
+
+    if (mentionedUsers.length > 0) {
+      console.log('🔵 Creating dependency tasks for', mentionedUsers.length, 'mentioned users');
+
+      for (const [index, userId] of mentionedUsers.entries()) {
+        try {
+          const mentionedUser = users.find(u => u.id === userId);
+          if (!mentionedUser) {
+            console.error('❌ User not found:', userId);
+            continue;
+          }
+
+          // Calculate due date (7 days from now)
+          const dueDate = new Date();
+          dueDate.setDate(dueDate.getDate() + 7);
+          const dueDateStr = dueDate.toISOString().split('T')[0];
+
+          const dependencyTaskData = {
+            parentTaskId: task.id,
+            parentTaskName: task.title,
+            blockerId: blockerEntry.id,
+            title: `Help resolve blocker: ${blockerComment.substring(0, 50)}${blockerComment.length > 50 ? '...' : ''}`,
+            description: blockerComment,
+            assignedTo: userId,
+            assignedToName: mentionedUser.name,
+            assignedBy: currentUser.id,
+            assignedByName: currentUser.name,
+            status: DEPENDENCY_STATUS.NOT_STARTED,
+            dueDate: dueDateStr,
+            createdAt: now,
+            updatedAt: now,
+            progressNotes: [],
+            activityTimeline: [{
+              id: `activity-${Date.now()}-${index}`,
+              type: 'ASSIGNMENT',
+              title: 'Dependency Task Created',
+              description: `Created by ${currentUser.name} to resolve blocker in "${task.title}"`,
+              timestamp: now,
+              userName: currentUser.name,
+              userId: currentUser.id
+            }]
+          };
+
+          console.log('🔵 Creating dependency task:', dependencyTaskData);
+          const createdTask = await db.createFullDependencyTask(dependencyTaskData);
+
+          if (createdTask && createdTask.id) {
+            console.log('✅ Dependency task created with ID:', createdTask.id);
+            createdDependencies.push(createdTask.id);
+          } else {
+            console.error('❌ Failed to create dependency task - no ID returned');
+          }
+        } catch (error) {
+          console.error('❌ Error creating dependency task for user:', userId, error);
+        }
+      }
+
+      console.log('✅ Created', createdDependencies.length, 'dependency tasks');
+    }
 
     // Add dependency task IDs to blocker entry
     blockerEntry.dependencyTasks = createdDependencies;
