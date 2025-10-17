@@ -246,15 +246,24 @@ const TaskDetailModal = ({ task, employees, onClose, onUpdate }) => {
             <h3 className="text-lg font-semibold text-gray-900 mb-3">Additional Feedback</h3>
             {/* Use taskFeedback from the hook instead of task.managerFeedback from props */}
             {taskFeedback && taskFeedback.length > 0 && (
-              <div className="space-y-2 mb-3">
-                {taskFeedback.map(fb => (
-                  <div key={fb.id} className="bg-green-50 border border-green-200 rounded-lg p-4">
-                    <p className="text-gray-900">{fb.text}</p>
-                    <p className="text-xs text-gray-600 mt-1">
-                      {fb.authorName || 'Manager'} • {new Date(fb.timestamp).toLocaleString()}
-                    </p>
-                  </div>
-                ))}
+              <div className="space-y-3 mb-4">
+                {taskFeedback.map((fb, index) => {
+                  // Handle if fb is still a string (shouldn't happen but safety check)
+                  const feedbackText = typeof fb === 'string' ? fb : (fb.text || JSON.stringify(fb));
+                  const feedbackAuthor = typeof fb === 'object' ? (fb.authorName || 'Manager') : 'Manager';
+                  const feedbackTime = typeof fb === 'object' && fb.timestamp ? new Date(fb.timestamp).toLocaleString() : '';
+                  
+                  return (
+                    <div key={fb.id || index} className="bg-green-50 border border-green-200 rounded-lg p-4">
+                      <p className="text-gray-900 whitespace-pre-wrap">{feedbackText}</p>
+                      {feedbackTime && (
+                        <p className="text-xs text-gray-600 mt-2">
+                          {feedbackAuthor} • {feedbackTime}
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
             <div className="relative">

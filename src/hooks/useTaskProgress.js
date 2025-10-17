@@ -36,10 +36,14 @@ export const useTaskProgress = (taskId) => {
       // Ensure managerFeedback is always an array
       let feedbackArray = [];
       try {
+        console.log('🔍 Raw managerFeedback from DB:', task.managerFeedback);
+        console.log('🔍 Type:', typeof task.managerFeedback);
+        
         // Check if managerFeedback is a stringified JSON (common Supabase issue)
         if (task.managerFeedback && typeof task.managerFeedback === 'string') {
           try {
             const parsed = JSON.parse(task.managerFeedback);
+            console.log('🔍 Parsed feedback:', parsed);
             if (Array.isArray(parsed)) {
               feedbackArray = parsed;
             } else if (typeof parsed === 'object') {
@@ -55,6 +59,7 @@ export const useTaskProgress = (taskId) => {
               }];
             }
           } catch (parseError) {
+            console.warn('⚠️ JSON parse failed, treating as plain string:', parseError);
             // Not JSON, treat as plain string
             feedbackArray = [{
               id: `feedback-legacy-${Date.now()}`,
@@ -65,11 +70,15 @@ export const useTaskProgress = (taskId) => {
             }];
           }
         } else if (Array.isArray(task.managerFeedback)) {
+          console.log('🔍 Already an array');
           feedbackArray = task.managerFeedback;
         } else if (task.managerFeedback && typeof task.managerFeedback === 'object' && task.managerFeedback !== null) {
+          console.log('🔍 Single object, converting to array');
           // Single feedback object, convert to array
           feedbackArray = [task.managerFeedback];
         }
+        
+        console.log('✅ Final feedbackArray:', feedbackArray);
       } catch (feedbackError) {
         console.warn('Error parsing feedback, using empty array:', feedbackError);
         feedbackArray = [];
