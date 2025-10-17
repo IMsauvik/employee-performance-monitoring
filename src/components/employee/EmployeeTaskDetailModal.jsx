@@ -322,27 +322,21 @@ const EmployeeTaskDetailModal = ({ task, onClose, onUpdate }) => {
     }
 
     // Create dependency tasks for each mentioned user
+    // Note: Dependencies should link to actual blocking tasks
+    // For now, we skip creating invalid dependencies
+    // TODO: Implement proper blocker task creation workflow
     const createdDependencies = [];
-    for (let index = 0; index < mentionedUsers.length; index++) {
-      const userId = mentionedUsers[index];
-      const user = users.find(u => u.id === userId);
-      if (user) {
-        try {
-          const dependencyTask = await db.createDependencyTask({
-            taskId: task.id,
-            dependsOnTaskId: `dep-${Date.now()}-${index}`,
-            dependencyType: 'blocker',
-            createdAt: now
-          });
-
-          if (dependencyTask) {
-            createdDependencies.push(dependencyTask.id);
-          }
-        } catch (error) {
-          console.error('Error creating dependency task:', error);
-        }
-      }
-    }
+    
+    // If you want to create actual dependency tasks, you need to:
+    // 1. Create a blocker task first
+    // 2. Then link it using the blocker task's UUID
+    // Example:
+    // const blockerTask = await db.createTask({...});
+    // const dependency = await db.createDependencyTask({
+    //   taskId: task.id,
+    //   dependsOnTaskId: blockerTask.id,  // Use actual task UUID
+    //   dependencyType: 'blocker'
+    // });
 
     // Add dependency task IDs to blocker entry
     blockerEntry.dependencyTasks = createdDependencies;

@@ -857,6 +857,35 @@ const databaseService = {
       return [];
     }
   },
+
+  async getDependencyTasksByAssignee(assigneeId) {
+    try {
+      // Get all tasks assigned to this user
+      const { data: tasks, error: tasksError } = await supabase
+        .from('tasks')
+        .select('id')
+        .eq('assigned_to', assigneeId);
+      
+      if (tasksError) throw tasksError;
+      
+      if (!tasks || tasks.length === 0) return [];
+      
+      const taskIds = tasks.map(t => t.id);
+      
+      // Get all dependencies for these tasks
+      const { data, error } = await supabase
+        .from('task_dependencies')
+        .select('*')
+        .in('task_id', taskIds)
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      return (data || []).map(dbToDependency);
+    } catch (error) {
+      console.error('Error fetching dependency tasks by assignee:', error);
+      return [];
+    }
+  },
 };
 
 export const db = databaseService;
