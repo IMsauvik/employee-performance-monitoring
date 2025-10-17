@@ -34,7 +34,8 @@ const DependencyTaskDetailModal = ({ dependencyTaskId, onClose, currentUser }) =
       const task = await db.getFullDependencyTask(dependencyTaskId);
       if (task) {
         setDepTask(task);
-        const parent = await db.getTaskById(task.taskId);
+        // Fix: Use parentTaskId instead of taskId
+        const parent = await db.getTaskById(task.parentTaskId);
         setParentTask(parent);
       }
     } catch (error) {
@@ -127,7 +128,7 @@ const DependencyTaskDetailModal = ({ dependencyTaskId, onClose, currentUser }) =
     if (depTask.assignedBy) {
       await db.createNotification({
         userId: depTask.assignedBy,
-        taskId: depTask.taskId || depTask.id, // Use taskId or fallback to depTask.id
+        taskId: depTask.parentTaskId || depTask.id, // Use parentTaskId or fallback to depTask.id
         message: `Dependency task "${depTask.title}" is now ${newStatus.replace('_', ' ')}`,
         type: 'dependency_status_change',
         metadata: {
@@ -161,7 +162,7 @@ const DependencyTaskDetailModal = ({ dependencyTaskId, onClose, currentUser }) =
 
       // Update blocker status in parent task
       const tasks = await db.getTasks();
-      const parentTaskData = tasks.find(t => t.id === depTask.taskId);
+      const parentTaskData = tasks.find(t => t.id === depTask.parentTaskId);
 
       if (parentTaskData && parentTaskData.blockerHistory) {
         const updatedBlockerHistory = parentTaskData.blockerHistory.map(b => {
@@ -189,7 +190,7 @@ const DependencyTaskDetailModal = ({ dependencyTaskId, onClose, currentUser }) =
           userId: 'system'
         };
 
-        await db.updateTask(depTask.taskId, {
+        await db.updateTask(depTask.parentTaskId, {
           status: TASK_STATUS.IN_PROGRESS,
           blockerHistory: updatedBlockerHistory,
           activityTimeline: [...(parentTaskData.activityTimeline || []), activity]
