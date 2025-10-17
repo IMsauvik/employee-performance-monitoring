@@ -375,6 +375,69 @@ const DependencyTaskDetailModal = ({ dependencyTaskId, onClose, currentUser }) =
             </div>
           )}
 
+          {/* Rejection Notice */}
+          {depTask.rejectedBy && depTask.rejectionReason && (
+            <div className="bg-red-50 border-2 border-red-300 rounded-xl p-5 animate-pulse">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-full bg-red-500 flex items-center justify-center flex-shrink-0">
+                  <XCircle className="w-6 h-6 text-white" />
+                </div>
+                <div className="flex-1">
+                  <h4 className="font-bold text-red-900 text-lg mb-2">Task Rejected - Rework Required</h4>
+                  <p className="text-sm text-red-800 mb-3">
+                    <strong>{depTask.rejectedByName || 'Task owner'}</strong> reviewed your work and has requested changes.
+                  </p>
+                  <div className="bg-white border border-red-200 rounded-lg p-3">
+                    <p className="text-xs font-semibold text-red-900 mb-1">Feedback:</p>
+                    <p className="text-sm text-gray-800">&ldquo;{depTask.rejectionReason}&rdquo;</p>
+                  </div>
+                  <p className="text-xs text-red-700 mt-3">
+                    📌 Please review the feedback, make the necessary changes, and resubmit when ready.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Submission for Review Status */}
+          {depTask.status === DEPENDENCY_STATUS.COMPLETED && depTask.submittedForReview && !depTask.acceptedBy && !depTask.rejectedBy && (
+            <div className="bg-yellow-50 border-2 border-yellow-300 rounded-xl p-5">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-full bg-yellow-500 flex items-center justify-center flex-shrink-0">
+                  <Clock className="w-6 h-6 text-white" />
+                </div>
+                <div className="flex-1">
+                  <h4 className="font-bold text-yellow-900 text-lg mb-1">Awaiting Review</h4>
+                  <p className="text-sm text-yellow-800">
+                    Your work has been submitted for review. {parentTaskAssignee?.name || 'The task owner'} will review and either accept or request changes.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Acceptance Status */}
+          {depTask.acceptedBy && (
+            <div className="bg-green-50 border-2 border-green-300 rounded-xl p-5">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-full bg-green-500 flex items-center justify-center flex-shrink-0">
+                  <CheckCircle className="w-6 h-6 text-white" />
+                </div>
+                <div className="flex-1">
+                  <h4 className="font-bold text-green-900 text-lg mb-1">✅ Task Accepted!</h4>
+                  <p className="text-sm text-green-800">
+                    <strong>{depTask.acceptedByName || 'The task owner'}</strong> has accepted your work. Great job!
+                  </p>
+                  {depTask.acceptedAt && (
+                    <p className="text-xs text-green-700 mt-2">
+                      Accepted on {formatDateTime(depTask.acceptedAt)}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Task Info */}
           <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
             <h3 className="font-bold text-xl text-gray-900 mb-3">{depTask.title}</h3>

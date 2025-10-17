@@ -489,15 +489,19 @@ const EmployeeTaskDetailModal = ({ task, onClose, onUpdate }) => {
       });
 
       // Notify dependency assignee
-      await db.createNotification({
-        id: `notif-${Date.now()}`,
-        userId: dep.assignedTo,
-        taskId: dependencyId,
-        message: `${currentUser.name} accepted your dependency task: "${dep.title}"`,
-        type: 'dependency_accepted',
-        read: false,
-        createdAt: now
-      });
+      try {
+        await db.createNotification({
+          id: `notif-${Date.now()}`,
+          userId: dep.assignedTo,
+          taskId: dependencyId,
+          message: `${currentUser.name} accepted your dependency task: "${dep.title}"`,
+          type: 'dependency_accepted',
+          read: false,
+          createdAt: now
+        });
+      } catch (error) {
+        console.warn('Failed to send notification:', error);
+      }
 
       // Check if all dependencies are accepted
       checkAndResolveBlocker();
@@ -567,15 +571,19 @@ const EmployeeTaskDetailModal = ({ task, onClose, onUpdate }) => {
       });
 
       // Notify dependency assignee
-      await db.createNotification({
-        id: `notif-${Date.now()}`,
-        userId: dep.assignedTo,
-        taskId: dependencyToReject,
-        message: `${currentUser.name} rejected your dependency task and requested rework: "${dep.title}"`,
-        type: 'dependency_rejected',
-        read: false,
-        createdAt: now
-      });
+      try {
+        await db.createNotification({
+          id: `notif-${Date.now()}`,
+          userId: dep.assignedTo,
+          taskId: dependencyToReject,
+          message: `${currentUser.name} rejected your dependency task and requested rework: "${dep.title}"`,
+          type: 'dependency_rejected',
+          read: false,
+          createdAt: now
+        });
+      } catch (error) {
+        console.warn('Failed to send notification:', error);
+      }
 
       toast.success('Dependency rejected. Assignee has been notified.');
       setShowRejectionModal(false);
