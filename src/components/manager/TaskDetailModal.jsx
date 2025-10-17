@@ -45,8 +45,11 @@ const TaskDetailModal = ({ task, employees, onClose, onUpdate }) => {
         // Hide success animation after 2 seconds
         setTimeout(() => setShowFeedbackSuccess(false), 2000);
         
-        // Refresh the task data to reflect changes
-        onUpdate(task.id, { hasNewFeedback: true });
+        // Refresh the progress data to show new feedback immediately
+        await refreshProgress();
+        
+        // Don't call onUpdate with hasNewFeedback - it's not a DB field
+        // The refresh above will reload the feedback from the database
       } catch (error) {
         toast.error('Failed to add feedback. Please try again.');
       }
@@ -241,12 +244,15 @@ const TaskDetailModal = ({ task, employees, onClose, onUpdate }) => {
           {/* Manager Feedback */}
           <div>
             <h3 className="text-lg font-semibold text-gray-900 mb-3">Additional Feedback</h3>
-            {Array.isArray(task.managerFeedback) && task.managerFeedback.length > 0 && (
+            {/* Use taskFeedback from the hook instead of task.managerFeedback from props */}
+            {taskFeedback && taskFeedback.length > 0 && (
               <div className="space-y-2 mb-3">
-                {task.managerFeedback.map(fb => (
+                {taskFeedback.map(fb => (
                   <div key={fb.id} className="bg-green-50 border border-green-200 rounded-lg p-4">
                     <p className="text-gray-900">{fb.text}</p>
-                    <p className="text-xs text-gray-600 mt-1">{fb.authorId ? `By ${fb.authorId}` : ''} • {new Date(fb.timestamp).toLocaleString()}</p>
+                    <p className="text-xs text-gray-600 mt-1">
+                      {fb.authorName || 'Manager'} • {new Date(fb.timestamp).toLocaleString()}
+                    </p>
                   </div>
                 ))}
               </div>
