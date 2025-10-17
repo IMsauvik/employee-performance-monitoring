@@ -775,22 +775,43 @@ const EmployeeTaskDetailModal = ({ task, onClose, onUpdate }) => {
           {task.managerFeedback && (Array.isArray(task.managerFeedback) ? task.managerFeedback.length > 0 : true) && (
             <div>
               <h3 className="text-lg font-semibold text-gray-900 mb-3">Manager Feedback</h3>
-              {Array.isArray(task.managerFeedback) ? (
-                <div className="space-y-2">
-                  {task.managerFeedback.map(fb => (
-                    <div key={fb.id} className="bg-green-50 border border-green-200 rounded-lg p-4">
-                      <p className="text-gray-900">{fb.text}</p>
-                      <p className="text-xs text-gray-600 mt-1">
-                        {fb.authorName || 'Manager'} • {new Date(fb.timestamp).toLocaleString()}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                  <p className="text-gray-900">{task.managerFeedback}</p>
-                </div>
-              )}
+              {(() => {
+                // Parse feedback if it's a JSON string (from Supabase)
+                let feedbackArray = [];
+                
+                if (typeof task.managerFeedback === 'string') {
+                  try {
+                    const parsed = JSON.parse(task.managerFeedback);
+                    feedbackArray = Array.isArray(parsed) ? parsed : [parsed];
+                  } catch {
+                    // Not JSON, treat as plain string
+                    feedbackArray = [{ id: 'legacy', text: task.managerFeedback, timestamp: new Date().toISOString(), authorName: 'Manager' }];
+                  }
+                } else if (Array.isArray(task.managerFeedback)) {
+                  feedbackArray = task.managerFeedback;
+                } else if (typeof task.managerFeedback === 'object') {
+                  feedbackArray = [task.managerFeedback];
+                }
+
+                return feedbackArray.length > 0 ? (
+                  <div className="space-y-2">
+                    {feedbackArray.map((fb, idx) => (
+                      <div key={fb.id || idx} className="bg-green-50 border border-green-200 rounded-lg p-4">
+                        <p className="text-gray-900">{fb.text || fb}</p>
+                        {fb.timestamp && (
+                          <p className="text-xs text-gray-600 mt-1">
+                            {fb.authorName || 'Manager'} • {new Date(fb.timestamp).toLocaleString()}
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                    <p className="text-sm text-gray-500">No feedback yet</p>
+                  </div>
+                );
+              })()}
             </div>
           )}
 

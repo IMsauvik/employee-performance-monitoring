@@ -686,19 +686,24 @@ const databaseService = {
 
   async addTaskComment(commentData) {
     try {
+      // Validate comment text is not empty
+      if (!commentData.comment || commentData.comment.trim() === '') {
+        throw new Error('Comment text is required and cannot be empty');
+      }
+
       // Map camelCase to snake_case for database
       // Don't send id - let database generate UUID
       const dbData = {
         task_id: commentData.taskId,
         user_id: commentData.userId,
-        comment: commentData.comment,
+        comment: commentData.comment.trim(), // Ensure trimmed
         parent_comment_id: commentData.parentCommentId,
-        mentions: commentData.mentions,
+        mentions: commentData.mentions || [],
         attachments: commentData.attachments || [],
         reactions: commentData.reactions || {},
         is_edited: commentData.isEdited || false,
         edited_at: commentData.editedAt,
-        created_at: commentData.createdAt
+        created_at: commentData.createdAt || new Date().toISOString()
       };
 
       const { data, error } = await supabase
