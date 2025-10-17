@@ -34,15 +34,33 @@ const EmployeeTaskDetailModal = ({ task, onClose, onUpdate }) => {
 
   useEffect(() => {
     // Load dependency tasks from blocker history
-    const deps = [];
-    if (task.blockerHistory) {
-      task.blockerHistory.forEach(blocker => {
-        if (blocker.dependencyTasks) {
-          deps.push(...blocker.dependencyTasks);
+    const loadDependencyTasks = async () => {
+      const depIds = [];
+      if (task.blockerHistory) {
+        task.blockerHistory.forEach(blocker => {
+          if (blocker.dependencyTasks) {
+            depIds.push(...blocker.dependencyTasks);
+          }
+        });
+      }
+      
+      // Load full dependency task objects from database
+      if (depIds.length > 0) {
+        try {
+          const fullDeps = await Promise.all(
+            depIds.map(depId => db.getFullDependencyTask(depId))
+          );
+          setDependencyTasks(fullDeps.filter(dep => dep !== null));
+        } catch (error) {
+          console.error('Error loading dependency tasks:', error);
+          setDependencyTasks([]);
         }
-      });
-    }
-    setDependencyTasks(deps);
+      } else {
+        setDependencyTasks([]);
+      }
+    };
+    
+    loadDependencyTasks();
 
     // Load users for the mention functionality
     const loadUsers = async () => {
