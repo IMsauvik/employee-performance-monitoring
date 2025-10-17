@@ -88,7 +88,7 @@ const TaskDetailModal = ({ task, employees, onClose, onUpdate }) => {
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200 sticky top-0 bg-white">
           <div className="flex-1">
-            <h2 className="text-2xl font-bold text-gray-900">{task.taskName}</h2>
+            <h2 className="text-2xl font-bold text-gray-900">{task.title || task.taskName}</h2>
             <div className="flex items-center gap-3 mt-2">
               <span className={`px-3 py-1 text-xs font-semibold rounded-full ${getStatusColor(task.status)}`}>
                 {getStatusText(task.status)}
@@ -112,11 +112,11 @@ const TaskDetailModal = ({ task, employees, onClose, onUpdate }) => {
           <div className="grid grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg">
             <div>
               <p className="text-xs text-gray-500 mb-1">Vertical</p>
-              <p className="font-semibold text-gray-900">{task.vertical}</p>
+              <p className="font-semibold text-gray-900">{task.vertical || 'N/A'}</p>
             </div>
             <div>
               <p className="text-xs text-gray-500 mb-1">Project</p>
-              <p className="font-semibold text-gray-900">{task.project}</p>
+              <p className="font-semibold text-gray-900">{task.project || 'N/A'}</p>
             </div>
             <div>
               <p className="text-xs text-gray-500 mb-1">Assigned To</p>
@@ -124,22 +124,22 @@ const TaskDetailModal = ({ task, employees, onClose, onUpdate }) => {
             </div>
             <div>
               <p className="text-xs text-gray-500 mb-1">POC</p>
-              <p className="font-semibold text-gray-900">{task.poc}</p>
+              <p className="font-semibold text-gray-900">{task.poc || 'N/A'}</p>
             </div>
             <div>
               <p className="text-xs text-gray-500 mb-1">Date Assigned</p>
-              <p className="font-semibold text-gray-900">{formatDate(task.dateOfAssignment)}</p>
+              <p className="font-semibold text-gray-900">{formatDate(task.startDate || task.dateOfAssignment || task.createdAt)}</p>
             </div>
             <div>
               <p className="text-xs text-gray-500 mb-1">Deadline</p>
               <p className="font-semibold text-gray-900">
-                {formatDate(task.deadline)}
-                <span className="text-sm text-gray-600 ml-2">({getDaysRemaining(task.deadline)})</span>
+                {formatDate(task.dueDate || task.deadline)}
+                <span className="text-sm text-gray-600 ml-2">({getDaysRemaining(task.dueDate || task.deadline)})</span>
               </p>
             </div>
             <div className="col-span-2">
               <p className="text-xs text-gray-500 mb-1">Timeline</p>
-              <p className="font-semibold text-gray-900">{task.timeline}</p>
+              <p className="font-semibold text-gray-900">{task.timeline || 'N/A'}</p>
             </div>
           </div>
 
@@ -171,7 +171,7 @@ const TaskDetailModal = ({ task, employees, onClose, onUpdate }) => {
           {/* Description */}
           <div>
             <h3 className="text-lg font-semibold text-gray-900 mb-3">Description</h3>
-            <p className="text-gray-700 leading-relaxed">{task.taskDescription}</p>
+            <p className="text-gray-700 leading-relaxed">{task.description || task.taskDescription || 'No description provided'}</p>
           </div>
 
           {/* Progress Notes */}

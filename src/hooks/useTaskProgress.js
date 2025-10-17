@@ -36,20 +36,39 @@ export const useTaskProgress = (taskId) => {
       // Ensure managerFeedback is always an array
       let feedbackArray = [];
       try {
-        if (Array.isArray(task.managerFeedback)) {
+        // Check if managerFeedback is a stringified JSON (common Supabase issue)
+        if (task.managerFeedback && typeof task.managerFeedback === 'string') {
+          try {
+            const parsed = JSON.parse(task.managerFeedback);
+            if (Array.isArray(parsed)) {
+              feedbackArray = parsed;
+            } else if (typeof parsed === 'object') {
+              feedbackArray = [parsed];
+            } else {
+              // It's a plain string, treat as legacy format
+              feedbackArray = [{
+                id: `feedback-legacy-${Date.now()}`,
+                text: task.managerFeedback,
+                timestamp: task.updatedAt || new Date().toISOString(),
+                authorId: task.assignedBy || 'unknown',
+                authorName: 'Manager'
+              }];
+            }
+          } catch (parseError) {
+            // Not JSON, treat as plain string
+            feedbackArray = [{
+              id: `feedback-legacy-${Date.now()}`,
+              text: task.managerFeedback,
+              timestamp: task.updatedAt || new Date().toISOString(),
+              authorId: task.assignedBy || 'unknown',
+              authorName: 'Manager'
+            }];
+          }
+        } else if (Array.isArray(task.managerFeedback)) {
           feedbackArray = task.managerFeedback;
         } else if (task.managerFeedback && typeof task.managerFeedback === 'object' && task.managerFeedback !== null) {
           // Single feedback object, convert to array
           feedbackArray = [task.managerFeedback];
-        } else if (task.managerFeedback && typeof task.managerFeedback === 'string') {
-          // Legacy string format, convert to new format
-          feedbackArray = [{
-            id: `feedback-legacy-${Date.now()}`,
-            text: task.managerFeedback,
-            timestamp: task.updatedAt || new Date().toISOString(),
-            authorId: task.assignedBy || 'unknown',
-            authorName: 'Manager'
-          }];
         }
       } catch (feedbackError) {
         console.warn('Error parsing feedback, using empty array:', feedbackError);
