@@ -42,6 +42,19 @@ const TaskStatusJourney = ({ currentStatus, onStatusChange, userRole = 'employee
       borderColor: 'border-orange-300',
       activeBorderColor: 'border-orange-600',
       gradient: 'from-orange-500 to-red-500'
+    },
+    {
+      status: TASK_STATUS.COMPLETED,
+      label: 'Completed',
+      description: 'Task finished!',
+      icon: CheckCircle,
+      color: 'text-green-400',
+      activeColor: 'text-green-600',
+      bgColor: 'bg-green-50',
+      activeBgColor: 'bg-green-100',
+      borderColor: 'border-green-300',
+      activeBorderColor: 'border-green-600',
+      gradient: 'from-green-500 to-emerald-600'
     }
   ];
 

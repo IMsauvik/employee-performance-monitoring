@@ -760,66 +760,65 @@ const EmployeeTaskDetailModal = ({ task, onClose, onUpdate }) => {
             />
           </div>
 
-          {/* Add Progress Note */}
-          <div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-3">Add Progress Note</h3>
-            <div className="relative">
-              <textarea
-                value={progressNote}
-                onChange={(e) => setProgressNote(e.target.value)}
-                rows="3"
-                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent transition ${
-                  showProgressSuccess ? 'border-green-500 bg-green-50' : 'border-gray-300'
-                }`}
-                placeholder="Add a note about your progress..."
-              />
-              {showProgressSuccess && (
-                <div className="absolute top-2 right-2 animate-scaleIn">
-                  <CheckCircle className="w-6 h-6 text-green-500" />
-                </div>
-              )}
-            </div>
-            <button
-              onClick={handleAddProgressNote}
-              disabled={!progressNote.trim()}
-              className="mt-2 px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white rounded-lg transition shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Add Note
-            </button>
-          </div>
+          {/* Work Updates & Feedback - Unified Section */}
+          <div className="bg-gradient-to-br from-blue-50 via-purple-50 to-green-50 rounded-xl border-2 border-gray-200 p-6">
+            <h3 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+              <MessageCircle className="w-6 h-6 text-purple-600" />
+              Work Updates & Feedback
+            </h3>
 
-          {/* Previous Progress Notes */}
-          {task.progressNotes && task.progressNotes.length > 0 && (
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-3">Progress History</h3>
-              <div className="space-y-3">
-                {task.progressNotes.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)).map((note) => (
-                  <div key={note.id} className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <div className="flex items-start gap-3">
-                      <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center flex-shrink-0">
-                        <span className="text-white text-sm font-semibold">
-                          {note.addedByName.charAt(0)}
-                        </span>
-                      </div>
-                      <div className="flex-1">
-                        <p className="text-sm text-gray-900">{note.note}</p>
-                        <p className="text-xs text-gray-500 mt-1">
-                          {formatDateTime(note.timestamp)}
-                        </p>
-                      </div>
-                    </div>
+            {/* Add New Progress Note */}
+            <div className="bg-white rounded-lg border-2 border-gray-200 p-4 mb-4">
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Add Your Progress Update
+              </label>
+              <div className="relative">
+                <textarea
+                  value={progressNote}
+                  onChange={(e) => setProgressNote(e.target.value)}
+                  rows="3"
+                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition resize-none ${
+                    showProgressSuccess ? 'border-green-500 bg-green-50' : 'border-gray-300'
+                  }`}
+                  placeholder="Share your progress, challenges, accomplishments, or any updates on this task..."
+                />
+                {showProgressSuccess && (
+                  <div className="absolute top-2 right-2 animate-scaleIn">
+                    <CheckCircle className="w-6 h-6 text-green-500" />
                   </div>
-                ))}
+                )}
               </div>
+              <button
+                onClick={handleAddProgressNote}
+                disabled={!progressNote.trim()}
+                className="mt-3 px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white rounded-lg transition shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed font-medium flex items-center gap-2"
+              >
+                <MessageCircle className="w-4 h-4" />
+                Post Update
+              </button>
             </div>
-          )}
 
-          {/* Manager Feedback */}
-          {task.managerFeedback && (Array.isArray(task.managerFeedback) ? task.managerFeedback.length > 0 : true) && (
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-3">Manager Feedback</h3>
-              {(() => {
-                // Parse feedback if it's a JSON string (from Supabase)
+            {/* Unified Timeline - Chronologically sorted Progress Notes & Manager Feedback */}
+            {(() => {
+              // Combine all updates into a unified timeline
+              const allUpdates = [];
+
+              // Add progress notes
+              if (task.progressNotes && task.progressNotes.length > 0) {
+                task.progressNotes.forEach(note => {
+                  allUpdates.push({
+                    id: note.id,
+                    type: 'progress',
+                    text: note.note,
+                    authorName: note.addedByName || 'Employee',
+                    authorId: note.addedBy,
+                    timestamp: note.timestamp
+                  });
+                });
+              }
+
+              // Add manager feedback
+              if (task.managerFeedback) {
                 let feedbackArray = [];
                 
                 if (typeof task.managerFeedback === 'string') {
@@ -827,8 +826,12 @@ const EmployeeTaskDetailModal = ({ task, onClose, onUpdate }) => {
                     const parsed = JSON.parse(task.managerFeedback);
                     feedbackArray = Array.isArray(parsed) ? parsed : [parsed];
                   } catch {
-                    // Not JSON, treat as plain string
-                    feedbackArray = [{ id: 'legacy', text: task.managerFeedback, timestamp: new Date().toISOString(), authorName: 'Manager' }];
+                    feedbackArray = [{ 
+                      id: 'legacy', 
+                      text: task.managerFeedback, 
+                      timestamp: new Date().toISOString(), 
+                      authorName: 'Manager' 
+                    }];
                   }
                 } else if (Array.isArray(task.managerFeedback)) {
                   feedbackArray = task.managerFeedback;
@@ -836,27 +839,87 @@ const EmployeeTaskDetailModal = ({ task, onClose, onUpdate }) => {
                   feedbackArray = [task.managerFeedback];
                 }
 
-                return feedbackArray.length > 0 ? (
-                  <div className="space-y-2">
-                    {feedbackArray.map((fb, idx) => (
-                      <div key={fb.id || idx} className="bg-green-50 border border-green-200 rounded-lg p-4">
-                        <p className="text-gray-900">{fb.text || fb}</p>
-                        {fb.timestamp && (
-                          <p className="text-xs text-gray-600 mt-1">
-                            {fb.authorName || 'Manager'} • {new Date(fb.timestamp).toLocaleString()}
+                feedbackArray.forEach((fb, idx) => {
+                  allUpdates.push({
+                    id: fb.id || `feedback-${idx}`,
+                    type: 'feedback',
+                    text: fb.text || fb,
+                    authorName: fb.authorName || 'Manager',
+                    authorId: fb.authorId,
+                    timestamp: fb.timestamp || new Date().toISOString()
+                  });
+                });
+              }
+
+              // Sort by timestamp (newest first)
+              allUpdates.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+              return allUpdates.length > 0 ? (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="h-px flex-1 bg-gray-300"></div>
+                    <span className="text-sm font-semibold text-gray-600 uppercase tracking-wide">
+                      Timeline ({allUpdates.length} Updates)
+                    </span>
+                    <div className="h-px flex-1 bg-gray-300"></div>
+                  </div>
+
+                  {allUpdates.map((update) => (
+                    <div 
+                      key={update.id} 
+                      className={`rounded-lg p-4 border-l-4 shadow-sm hover:shadow-md transition animate-fadeIn ${
+                        update.type === 'progress' 
+                          ? 'bg-blue-50 border-blue-500' 
+                          : 'bg-green-50 border-green-500'
+                      }`}
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
+                          update.type === 'progress' 
+                            ? 'bg-blue-500' 
+                            : 'bg-green-500'
+                        }`}>
+                          <span className="text-white text-sm font-bold">
+                            {update.authorName.charAt(0).toUpperCase()}
+                          </span>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-2 mb-1">
+                            <div className="flex items-center gap-2">
+                              <span className="font-semibold text-gray-900">
+                                {update.authorName}
+                              </span>
+                              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                                update.type === 'progress'
+                                  ? 'bg-blue-200 text-blue-800'
+                                  : 'bg-green-200 text-green-800'
+                              }`}>
+                                {update.type === 'progress' ? '📝 Progress Update' : '💬 Manager Feedback'}
+                              </span>
+                            </div>
+                            <span className="text-xs text-gray-500 whitespace-nowrap">
+                              {formatDateTime(update.timestamp)}
+                            </span>
+                          </div>
+                          <p className="text-sm text-gray-800 leading-relaxed whitespace-pre-wrap">
+                            {update.text}
                           </p>
-                        )}
+                        </div>
                       </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                    <p className="text-sm text-gray-500">No feedback yet</p>
-                  </div>
-                );
-              })()}
-            </div>
-          )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="bg-white border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+                  <MessageCircle className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                  <p className="text-sm text-gray-600 font-medium">No updates yet</p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Add your first progress note to start the conversation!
+                  </p>
+                </div>
+              );
+            })()}
+          </div>
 
           {/* Attachments Section */}
           <div>
