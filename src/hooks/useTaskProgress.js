@@ -33,52 +33,94 @@ export const useTaskProgress = (taskId) => {
         return;
       }
 
-      // Ensure managerFeedback is always an array
-      let feedbackArray = [];
-      try {
-        console.log('🔍 Raw managerFeedback from DB:', task.managerFeedback);
-        console.log('🔍 Type:', typeof task.managerFeedback);
+      // Recursive function to flatten all nested feedback
+      const flattenFeedback = (data, depth = 0) => {
+        if (depth > 20) {
+          console.warn('⚠️ Max recursion depth reached, stopping parse');
+          return [];
+        }
+
+        if (!data) return [];
         
-        // Check if managerFeedback is a stringified JSON (common Supabase issue)
-        if (task.managerFeedback && typeof task.managerFeedback === 'string') {
+        // If it's a string, try to parse it
+        if (typeof data === 'string') {
           try {
-            const parsed = JSON.parse(task.managerFeedback);
-            console.log('🔍 Parsed feedback:', parsed);
-            if (Array.isArray(parsed)) {
-              feedbackArray = parsed;
-            } else if (typeof parsed === 'object') {
-              feedbackArray = [parsed];
-            } else {
-              // It's a plain string, treat as legacy format
-              feedbackArray = [{
-                id: `feedback-legacy-${Date.now()}`,
-                text: task.managerFeedback,
-                timestamp: task.updatedAt || new Date().toISOString(),
-                authorId: task.assignedBy || 'unknown',
-                authorName: 'Manager'
-              }];
-            }
-          } catch (parseError) {
-            console.warn('⚠️ JSON parse failed, treating as plain string:', parseError);
-            // Not JSON, treat as plain string
-            feedbackArray = [{
-              id: `feedback-legacy-${Date.now()}`,
-              text: task.managerFeedback,
+            const parsed = JSON.parse(data);
+            return flattenFeedback(parsed, depth + 1);
+          } catch {
+            // Plain string - wrap as feedback item
+            return [{
+              id: `feedback-legacy-${Date.now()}-${depth}`,
+              text: data,
               timestamp: task.updatedAt || new Date().toISOString(),
               authorId: task.assignedBy || 'unknown',
               authorName: 'Manager'
             }];
           }
-        } else if (Array.isArray(task.managerFeedback)) {
-          console.log('🔍 Already an array');
-          feedbackArray = task.managerFeedback;
-        } else if (task.managerFeedback && typeof task.managerFeedback === 'object' && task.managerFeedback !== null) {
-          console.log('🔍 Single object, converting to array');
-          // Single feedback object, convert to array
-          feedbackArray = [task.managerFeedback];
         }
         
-        console.log('✅ Final feedbackArray:', feedbackArray);
+        // If it's an array, process each item
+        if (Array.isArray(data)) {
+          const results = [];
+          for (const item of data) {
+            if (!item) continue;
+            
+            if (typeof item === 'string') {
+              // Check if it's a stringified array/object
+              try {
+                const parsed = JSON.parse(item);
+                results.push(...flattenFeedback(parsed, depth + 1));
+              } catch {
+                // Plain string
+                results.push({
+                  id: `feedback-legacy-${Date.now()}-${results.length}`,
+                  text: item,
+                  timestamp: task.updatedAt || new Date().toISOString(),
+                  authorId: task.assignedBy || 'unknown',
+                  authorName: 'Manager'
+                });
+              }
+            } else if (typeof item === 'object' && item !== null) {
+              // Check if it has nested 'text' that's stringified
+              if (item.text && typeof item.text === 'string' && item.text.startsWith('[')) {
+                try {
+                  const parsed = JSON.parse(item.text);
+                  results.push(...flattenFeedback(parsed, depth + 1));
+                } catch {
+                  // Not parseable, use as-is
+                  results.push(item);
+                }
+              } else {
+                // Regular feedback object
+                results.push(item);
+              }
+            }
+          }
+          return results;
+        }
+        
+        // Single object
+        if (typeof data === 'object' && data !== null) {
+          return [data];
+        }
+        
+        return [];
+      };
+
+      // Ensure managerFeedback is always an array
+      let feedbackArray = [];
+      try {
+        console.log('🔍 Raw managerFeedback from DB:', task.managerFeedback);
+        feedbackArray = flattenFeedback(task.managerFeedback);
+        
+        // Sort by timestamp (oldest first)
+        feedbackArray.sort((a, b) => {
+          const timeA = new Date(a.timestamp || 0).getTime();
+          const timeB = new Date(b.timestamp || 0).getTime();
+          return timeA - timeB;
+        });
+        
+        console.log('✅ Flattened feedback count:', feedbackArray.length);
       } catch (feedbackError) {
         console.warn('Error parsing feedback, using empty array:', feedbackError);
         feedbackArray = [];
@@ -134,23 +176,76 @@ export const useTaskProgress = (taskId) => {
         authorName: currentUser.name
       };
 
-      // Ensure managerFeedback is always an array
+      // Get existing feedback as clean array (no nested stringification)
       let existingFeedback = [];
-      if (Array.isArray(task.managerFeedback)) {
-        existingFeedback = task.managerFeedback;
-      } else if (task.managerFeedback && typeof task.managerFeedback === 'string') {
-        // Legacy format - convert to new format
-        existingFeedback = [{
-          id: `feedback-legacy-${Date.now()}`,
-          text: task.managerFeedback,
-          timestamp: task.updatedAt || new Date().toISOString(),
-          authorId: task.assignedBy
-        }];
-      } else if (task.managerFeedback && typeof task.managerFeedback === 'object') {
-        existingFeedback = [task.managerFeedback];
-      }
+      
+      // Recursive function to flatten all nested feedback
+      const flattenFeedback = (data, depth = 0) => {
+        if (depth > 20) return [];
+        if (!data) return [];
+        
+        if (typeof data === 'string') {
+          try {
+            const parsed = JSON.parse(data);
+            return flattenFeedback(parsed, depth + 1);
+          } catch {
+            return [{
+              id: `feedback-legacy-${Date.now()}-${depth}`,
+              text: data,
+              timestamp: task.updatedAt || new Date().toISOString(),
+              authorId: task.assignedBy || 'unknown',
+              authorName: 'Manager'
+            }];
+          }
+        }
+        
+        if (Array.isArray(data)) {
+          const results = [];
+          for (const item of data) {
+            if (!item) continue;
+            
+            if (typeof item === 'string') {
+              try {
+                const parsed = JSON.parse(item);
+                results.push(...flattenFeedback(parsed, depth + 1));
+              } catch {
+                results.push({
+                  id: `feedback-legacy-${Date.now()}-${results.length}`,
+                  text: item,
+                  timestamp: task.updatedAt || new Date().toISOString(),
+                  authorId: task.assignedBy || 'unknown',
+                  authorName: 'Manager'
+                });
+              }
+            } else if (typeof item === 'object' && item !== null) {
+              if (item.text && typeof item.text === 'string' && item.text.startsWith('[')) {
+                try {
+                  const parsed = JSON.parse(item.text);
+                  results.push(...flattenFeedback(parsed, depth + 1));
+                } catch {
+                  results.push(item);
+                }
+              } else {
+                results.push(item);
+              }
+            }
+          }
+          return results;
+        }
+        
+        if (typeof data === 'object' && data !== null) {
+          return [data];
+        }
+        
+        return [];
+      };
 
+      existingFeedback = flattenFeedback(task.managerFeedback);
+
+      // Create clean feedback array with new item
       const updatedFeedback = [...existingFeedback, newFeedback];
+      
+      // Update database - Supabase will handle JSONB conversion properly
       await db.updateTask(taskId, { managerFeedback: updatedFeedback });
 
       // Update local state immediately
