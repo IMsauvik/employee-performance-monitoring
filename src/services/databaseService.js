@@ -1094,6 +1094,49 @@ const databaseService = {
       return [];
     }
   },
+
+  // Get dependency tasks that need review by the user
+  // (user is the owner of the parent task and dependency is completed/pending review)
+  async getDependencyTasksForReview(userId) {
+    try {
+      console.log('🔵 Loading dependency tasks for review by user:', userId);
+      
+      // First, get all tasks owned by this user
+      const { data: userTasks, error: tasksError } = await supabase
+        .from('tasks')
+        .select('id')
+        .eq('assigned_to', userId);
+      
+      if (tasksError) throw tasksError;
+      
+      if (!userTasks || userTasks.length === 0) {
+        console.log('📋 User has no tasks, so no dependencies to review');
+        return [];
+      }
+      
+      const taskIds = userTasks.map(t => t.id);
+      console.log('📋 User owns', taskIds.length, 'tasks');
+      
+      // Get all dependency tasks for these parent tasks
+      const { data: dependencies, error: depsError } = await supabase
+        .from('dependency_tasks')
+        .select('*')
+        .in('parent_task_id', taskIds)
+        .order('created_at', { ascending: false });
+      
+      if (depsError) throw depsError;
+      
+      console.log('✅ Found', dependencies?.length || 0, 'dependency tasks for review');
+      console.log('📊 Raw dependency data:', dependencies);
+      
+      const converted = (dependencies || []).map(dbToDependencyTask);
+      console.log('✅ Converted dependency tasks:', converted);
+      return converted;
+    } catch (error) {
+      console.error('❌ Error fetching dependency tasks for review:', error);
+      return [];
+    }
+  },
 };
 
 export const db = databaseService;
