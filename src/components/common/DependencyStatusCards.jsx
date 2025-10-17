@@ -46,24 +46,25 @@ const DependencyStatusCards = ({ dependencies, onDependencyClick, onAccept, onRe
     <div className="space-y-3">
       <h4 className="font-bold text-gray-900 text-sm">Dependency Tasks:</h4>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        {dependencies.map(depId => {
-          const dep = storage.getDependencyTask(depId);
-          if (!dep) return null;
+        {dependencies.map(dep => {
+          // Accept both full objects and IDs for backwards compatibility
+          const depData = typeof dep === 'string' ? storage.getDependencyTask(dep) : dep;
+          if (!depData) return null;
 
-          const assignedUser = storage.getUserById(dep.assignedTo);
-          const isPendingReview = dep.status === DEPENDENCY_STATUS.COMPLETED && dep.submittedForReview && !dep.acceptedBy && !dep.rejectedBy;
+          const assignedUserName = depData.assignedToName || storage.getUserById(depData.assignedTo)?.name || 'Unknown';
+          const isPendingReview = depData.status === DEPENDENCY_STATUS.COMPLETED && depData.submittedForReview && !depData.acceptedBy && !depData.rejectedBy;
 
           return (
             <div
-              key={dep.id}
-              className={`border-2 rounded-lg p-3 cursor-pointer hover:shadow-lg transition-all ${getStatusColor(dep)}`}
-              onClick={() => onDependencyClick && onDependencyClick(dep.id)}
+              key={depData.id}
+              className={`border-2 rounded-lg p-3 cursor-pointer hover:shadow-lg transition-all ${getStatusColor(depData)}`}
+              onClick={() => onDependencyClick && onDependencyClick(depData.id)}
             >
               <div className="flex items-start justify-between mb-2">
                 <div className="flex items-center gap-2">
-                  {getStatusIcon(dep.rejectedBy ? 'rejected' : dep.status)}
+                  {getStatusIcon(depData.rejectedBy ? 'rejected' : depData.status)}
                   <span className="text-xs font-bold text-gray-700">
-                    {getStatusText(dep)}
+                    {getStatusText(depData)}
                   </span>
                 </div>
                 {isPendingReview && (
@@ -74,12 +75,12 @@ const DependencyStatusCards = ({ dependencies, onDependencyClick, onAccept, onRe
               </div>
 
               <h5 className="font-semibold text-gray-900 text-sm mb-1 line-clamp-1">
-                {dep.title}
+                {depData.title}
               </h5>
 
               <div className="flex items-center gap-2 text-xs text-gray-600 mb-2">
                 <User className="w-3 h-3" />
-                <span>{assignedUser?.name || 'Unknown'}</span>
+                <span>{assignedUserName}</span>
               </div>
 
               {/* Accept/Reject Buttons */}
@@ -88,7 +89,7 @@ const DependencyStatusCards = ({ dependencies, onDependencyClick, onAccept, onRe
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      onAccept(dep.id);
+                      onAccept(depData.id);
                     }}
                     className="flex-1 px-3 py-1.5 bg-green-600 text-white rounded text-xs font-bold hover:bg-green-700 transition flex items-center justify-center gap-1"
                   >
@@ -98,7 +99,7 @@ const DependencyStatusCards = ({ dependencies, onDependencyClick, onAccept, onRe
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      onReject(dep.id);
+                      onReject(depData.id);
                     }}
                     className="flex-1 px-3 py-1.5 bg-red-600 text-white rounded text-xs font-bold hover:bg-red-700 transition flex items-center justify-center gap-1"
                   >
@@ -109,18 +110,18 @@ const DependencyStatusCards = ({ dependencies, onDependencyClick, onAccept, onRe
               )}
 
               {/* Rejection Info */}
-              {dep.rejectedBy && dep.rejectionReason && (
+              {depData.rejectedBy && depData.rejectionReason && (
                 <div className="mt-2 pt-2 border-t border-red-300">
                   <p className="text-xs text-red-800 font-semibold">Rejection Reason:</p>
-                  <p className="text-xs text-red-700 italic mt-1">&ldquo;{dep.rejectionReason}&rdquo;</p>
+                  <p className="text-xs text-red-700 italic mt-1">&ldquo;{depData.rejectionReason}&rdquo;</p>
                 </div>
               )}
 
               {/* Acceptance Info */}
-              {dep.acceptedBy && (
+              {depData.acceptedBy && (
                 <div className="mt-2 pt-2 border-t border-green-300">
                   <p className="text-xs text-green-700 font-semibold">
-                    ✓ Accepted by {storage.getUserById(dep.acceptedBy)?.name}
+                    ✓ Accepted by {depData.acceptedByName || storage.getUserById(depData.acceptedBy)?.name || 'Manager'}
                   </p>
                 </div>
               )}
