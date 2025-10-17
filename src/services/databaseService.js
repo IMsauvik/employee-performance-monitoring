@@ -242,10 +242,10 @@ const databaseService = {
 
   async deleteUser(id) {
     try {
-      // Soft delete - set is_active to false
+      // Hard delete - actually remove the user from database
       const { error } = await supabase
         .from('users')
-        .update({ is_active: false })
+        .delete()
         .eq('id', id);
 
       if (error) throw error;
