@@ -1055,16 +1055,26 @@ const databaseService = {
 
   async getFullDependencyTasksByAssignee(assigneeId) {
     try {
+      console.log('🔵 Querying dependency_tasks for assignee:', assigneeId);
       const { data, error } = await supabase
         .from('dependency_tasks')
         .select('*')
         .eq('assigned_to', assigneeId)
         .order('created_at', { ascending: false });
       
-      if (error) throw error;
-      return (data || []).map(dbToDependencyTask);
+      if (error) {
+        console.error('❌ Supabase query error:', error);
+        throw error;
+      }
+      
+      console.log('✅ Raw data from database:', data);
+      console.log('📊 Found', data?.length || 0, 'dependency tasks');
+      
+      const converted = (data || []).map(dbToDependencyTask);
+      console.log('✅ Converted dependency tasks:', converted);
+      return converted;
     } catch (error) {
-      console.error('Error fetching full dependency tasks by assignee:', error);
+      console.error('❌ Error fetching full dependency tasks by assignee:', error);
       return [];
     }
   },

@@ -124,7 +124,7 @@ const CreateDependencyModal = ({ parentTask, blocker, onClose, onDependenciesCre
         }
 
         const dependencyTask = {
-          id: `dep-${Date.now()}-${index}`,
+          // Don't pass id - database will auto-generate UUID
           parentTaskId: parentTask.id,
           parentTaskName: parentTask.taskName || 'Unknown Task',
           blockerId: blocker?.id || null,
@@ -150,14 +150,23 @@ const CreateDependencyModal = ({ parentTask, blocker, onClose, onDependenciesCre
           }]
         };
 
-        await db.createFullDependencyTask(dependencyTask);
-        createdDependencies.push(dependencyTask);
+        console.log('🔵 Creating dependency task:', dependencyTask);
+        const createdTask = await db.createFullDependencyTask(dependencyTask);
+        console.log('✅ Dependency task created with ID:', createdTask?.id);
+        
+        if (!createdTask || !createdTask.id) {
+          console.error('❌ Failed to create dependency task - no ID returned');
+          toast.error('Failed to create dependency task. Please try again.');
+          return;
+        }
+        
+        createdDependencies.push(createdTask);
 
-        // Notify assigned user
+        // Notify assigned user - use the returned task ID
         await db.createNotification({
           id: `notif-${Date.now()}-${index}`,
           userId: dep.assignedTo,
-          taskId: dependencyTask.id,
+          taskId: createdTask.id, // Use the actual created task ID
           message: `You've been assigned a dependency task: "${dep.title}" for blocked task "${parentTask.taskName}"`,
           type: 'dependency_assigned',
           read: false,

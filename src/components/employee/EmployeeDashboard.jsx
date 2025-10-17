@@ -46,10 +46,13 @@ const EmployeeDashboard = () => {
     // Load dependency tasks
     const loadDependencies = async () => {
       try {
+        console.log('🔵 Loading dependency tasks for user:', currentUser.id);
         const deps = await db.getFullDependencyTasksByAssignee(currentUser.id);
+        console.log('✅ Dependency tasks loaded:', deps?.length || 0, 'tasks');
+        console.log('📋 Dependency tasks:', deps);
         setDependencyTasks(deps || []);
       } catch (error) {
-        console.error('Error loading dependency tasks:', error);
+        console.error('❌ Error loading dependency tasks:', error);
         setDependencyTasks([]);
       }
     };
