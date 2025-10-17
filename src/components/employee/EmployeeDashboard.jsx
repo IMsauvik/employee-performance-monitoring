@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { LayoutDashboard, TrendingUp, CheckCircle, Clock, AlertCircle, Calendar, BarChart3, Link } from 'lucide-react';
+import { LayoutDashboard, TrendingUp, CheckCircle, Clock, AlertCircle, Calendar, BarChart3, Link, Send } from 'lucide-react';
 import Header from '../common/Header';
 import { useAuth } from '../../context/AuthContext';
 import { useTasks } from '../../hooks/useTasks';
