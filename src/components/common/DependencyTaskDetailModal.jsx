@@ -31,7 +31,7 @@ const DependencyTaskDetailModal = ({ dependencyTaskId, onClose, currentUser }) =
 
   const loadTaskDetails = async () => {
     try {
-      const task = await db.getDependencyTask(dependencyTaskId);
+      const task = await db.getFullDependencyTask(dependencyTaskId);
       if (task) {
         setDepTask(task);
         const parent = await db.getTaskById(task.taskId);
@@ -121,7 +121,7 @@ const DependencyTaskDetailModal = ({ dependencyTaskId, onClose, currentUser }) =
       }
     }
 
-    await db.updateDependencyTask(depTask.id, updates);
+    await db.updateFullDependencyTask(depTask.id, updates);
 
     // Notify assignedBy user (person who assigned this dependency)
     if (depTask.assignedBy) {
@@ -253,7 +253,7 @@ const DependencyTaskDetailModal = ({ dependencyTaskId, onClose, currentUser }) =
       userId: currentUser.id
     };
 
-    await db.updateDependencyTask(depTask.id, {
+    await db.updateFullDependencyTask(depTask.id, {
       progressNotes: [...(depTask.progressNotes || []), note],
       activityTimeline: [...(depTask.activityTimeline || []), activity]
     });

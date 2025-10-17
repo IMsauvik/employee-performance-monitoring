@@ -405,12 +405,12 @@ const EmployeeTaskDetailModal = ({ task, onClose, onUpdate }) => {
   const handleAcceptDependency = async (dependencyId) => {
     try {
       const now = new Date().toISOString();
-      const dep = await db.getDependencyTask(dependencyId);
+      const dep = await db.getFullDependencyTask(dependencyId);
 
       if (!dep) return;
 
       // Update dependency
-      await db.updateDependencyTask(dependencyId, {
+      await db.updateFullDependencyTask(dependencyId, {
         acceptedBy: currentUser.id,
         acceptedByName: currentUser.name,
         acceptedAt: now,
@@ -480,12 +480,12 @@ const EmployeeTaskDetailModal = ({ task, onClose, onUpdate }) => {
 
     try {
       const now = new Date().toISOString();
-      const dep = await db.getDependencyTask(dependencyToReject);
+      const dep = await db.getFullDependencyTask(dependencyToReject);
 
       if (!dep) return;
 
       // Update dependency - send back for rework
-      await db.updateDependencyTask(dependencyToReject, {
+      await db.updateFullDependencyTask(dependencyToReject, {
         rejectedBy: currentUser.id,
         rejectedByName: currentUser.name,
         rejectedAt: now,
@@ -557,7 +557,7 @@ const EmployeeTaskDetailModal = ({ task, onClose, onUpdate }) => {
 
     // Check if all dependencies are accepted
     const allAcceptedPromises = deps.map(async (depId) => {
-      const dep = await db.getDependencyTask(depId);
+      const dep = await db.getFullDependencyTask(depId);
       return dep && dep.acceptedBy;
     });
     

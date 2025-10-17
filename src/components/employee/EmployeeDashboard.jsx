@@ -46,7 +46,7 @@ const EmployeeDashboard = () => {
     // Load dependency tasks
     const loadDependencies = async () => {
       try {
-        const deps = await db.getDependencyTasksByAssignee(currentUser.id);
+        const deps = await db.getFullDependencyTasksByAssignee(currentUser.id);
         setDependencyTasks(deps || []);
       } catch (error) {
         console.error('Error loading dependency tasks:', error);
@@ -322,7 +322,7 @@ const EmployeeDashboard = () => {
             setSelectedDependencyId(null);
             // Reload dependency tasks
             try {
-              const deps = await db.getDependencyTasksByAssignee(currentUser.id);
+              const deps = await db.getFullDependencyTasksByAssignee(currentUser.id);
               setDependencyTasks(deps || []);
             } catch (error) {
               console.error('Error reloading dependency tasks:', error);

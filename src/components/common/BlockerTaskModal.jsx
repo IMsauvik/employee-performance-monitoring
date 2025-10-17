@@ -25,8 +25,8 @@ const BlockerTaskModal = ({ taskId, onClose, currentUser }) => {
       const taskData = await db.getTaskById(taskId);
       if (taskData) {
         setTask(taskData);
-        // Load dependency tasks
-        const deps = await db.getDependenciesForTask(taskId);
+        // Load dependency tasks from dependency_tasks table
+        const deps = await db.getDependencyTasksByParent(taskId);
         setDependencyTasks(deps || []);
       }
       // Load all users for display

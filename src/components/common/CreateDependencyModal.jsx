@@ -150,7 +150,7 @@ const CreateDependencyModal = ({ parentTask, blocker, onClose, onDependenciesCre
           }]
         };
 
-        await db.createDependencyTask(dependencyTask);
+        await db.createFullDependencyTask(dependencyTask);
         createdDependencies.push(dependencyTask);
 
         // Notify assigned user

@@ -134,6 +134,37 @@ const dbToDependency = (dbDep) => {
   };
 };
 
+// Converter for full dependency task objects (from dependency_tasks table)
+const dbToDependencyTask = (dbDepTask) => {
+  if (!dbDepTask) return null;
+  return {
+    id: dbDepTask.id,
+    title: dbDepTask.title,
+    description: dbDepTask.description,
+    status: dbDepTask.status,
+    parentTaskId: dbDepTask.parent_task_id,
+    parentTaskName: dbDepTask.parent_task_name,
+    blockerId: dbDepTask.blocker_id,
+    assignedTo: dbDepTask.assigned_to,
+    assignedToName: dbDepTask.assigned_to_name,
+    assignedBy: dbDepTask.assigned_by,
+    assignedByName: dbDepTask.assigned_by_name,
+    dueDate: dbDepTask.due_date,
+    completedAt: dbDepTask.completed_at,
+    acceptedBy: dbDepTask.accepted_by,
+    acceptedByName: dbDepTask.accepted_by_name,
+    acceptedAt: dbDepTask.accepted_at,
+    rejectedBy: dbDepTask.rejected_by,
+    rejectedByName: dbDepTask.rejected_by_name,
+    rejectedAt: dbDepTask.rejected_at,
+    rejectionReason: dbDepTask.rejection_reason,
+    progressNotes: dbDepTask.progress_notes || [],
+    activityTimeline: dbDepTask.activity_timeline || [],
+    createdAt: dbDepTask.created_at,
+    updatedAt: dbDepTask.updated_at
+  };
+};
+
 const databaseService = {
   // ==================== USERS ====================
   
@@ -888,6 +919,168 @@ const databaseService = {
       return (data || []).map(dbToDependency);
     } catch (error) {
       console.error('Error fetching dependency tasks by assignee:', error);
+      return [];
+    }
+  },
+
+  // ==================== DEPENDENCY TASKS (Full Task Objects) ====================
+  
+  async createFullDependencyTask(dependencyTaskData) {
+    try {
+      console.log('🔵 Creating full dependency task:', dependencyTaskData);
+      
+      const dbData = {
+        title: dependencyTaskData.title,
+        description: dependencyTaskData.description,
+        status: dependencyTaskData.status || 'not_started',
+        parent_task_id: dependencyTaskData.parentTaskId,
+        parent_task_name: dependencyTaskData.parentTaskName,
+        blocker_id: dependencyTaskData.blockerId,
+        assigned_to: dependencyTaskData.assignedTo,
+        assigned_to_name: dependencyTaskData.assignedToName,
+        assigned_by: dependencyTaskData.assignedBy,
+        assigned_by_name: dependencyTaskData.assignedByName,
+        due_date: dependencyTaskData.dueDate,
+        progress_notes: dependencyTaskData.progressNotes || [],
+        activity_timeline: dependencyTaskData.activityTimeline || [],
+        created_at: dependencyTaskData.createdAt || new Date().toISOString(),
+        updated_at: dependencyTaskData.updatedAt || new Date().toISOString()
+      };
+
+      const { data, error } = await supabase
+        .from('dependency_tasks')
+        .insert([dbData])
+        .select()
+        .single();
+      
+      if (error) {
+        console.error('❌ Error creating dependency task:', error);
+        throw error;
+      }
+      
+      console.log('✅ Dependency task created:', data);
+      return dbToDependencyTask(data);
+    } catch (error) {
+      console.error('Error creating full dependency task:', error);
+      throw error;
+    }
+  },
+
+  async getFullDependencyTask(dependencyTaskId) {
+    try {
+      const { data, error } = await supabase
+        .from('dependency_tasks')
+        .select('*')
+        .eq('id', dependencyTaskId)
+        .single();
+      
+      if (error) throw error;
+      return dbToDependencyTask(data);
+    } catch (error) {
+      console.error('Error fetching full dependency task:', error);
+      return null;
+    }
+  },
+
+  async updateFullDependencyTask(dependencyTaskId, updates) {
+    try {
+      console.log('🔵 Updating dependency task:', dependencyTaskId, 'with:', updates);
+      
+      const dbUpdates = {};
+      if (updates.title !== undefined) dbUpdates.title = updates.title;
+      if (updates.description !== undefined) dbUpdates.description = updates.description;
+      if (updates.status !== undefined) dbUpdates.status = updates.status;
+      if (updates.dueDate !== undefined) dbUpdates.due_date = updates.dueDate;
+      if (updates.completedAt !== undefined) dbUpdates.completed_at = updates.completedAt;
+      if (updates.acceptedBy !== undefined) dbUpdates.accepted_by = updates.acceptedBy;
+      if (updates.acceptedByName !== undefined) dbUpdates.accepted_by_name = updates.acceptedByName;
+      if (updates.acceptedAt !== undefined) dbUpdates.accepted_at = updates.acceptedAt;
+      if (updates.rejectedBy !== undefined) dbUpdates.rejected_by = updates.rejectedBy;
+      if (updates.rejectedByName !== undefined) dbUpdates.rejected_by_name = updates.rejectedByName;
+      if (updates.rejectedAt !== undefined) dbUpdates.rejected_at = updates.rejectedAt;
+      if (updates.rejectionReason !== undefined) dbUpdates.rejection_reason = updates.rejectionReason;
+      if (updates.progressNotes !== undefined) dbUpdates.progress_notes = updates.progressNotes;
+      if (updates.activityTimeline !== undefined) dbUpdates.activity_timeline = updates.activityTimeline;
+
+      const { data, error } = await supabase
+        .from('dependency_tasks')
+        .update(dbUpdates)
+        .eq('id', dependencyTaskId)
+        .select()
+        .single();
+      
+      if (error) {
+        console.error('❌ Error updating dependency task:', error);
+        throw error;
+      }
+      
+      console.log('✅ Dependency task updated:', data);
+      return dbToDependencyTask(data);
+    } catch (error) {
+      console.error('Error updating full dependency task:', error);
+      throw error;
+    }
+  },
+
+  async deleteFullDependencyTask(dependencyTaskId) {
+    try {
+      const { error } = await supabase
+        .from('dependency_tasks')
+        .delete()
+        .eq('id', dependencyTaskId);
+      
+      if (error) throw error;
+      return true;
+    } catch (error) {
+      console.error('Error deleting full dependency task:', error);
+      return false;
+    }
+  },
+
+  async getDependencyTasksByParent(parentTaskId) {
+    try {
+      const { data, error } = await supabase
+        .from('dependency_tasks')
+        .select('*')
+        .eq('parent_task_id', parentTaskId)
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      return (data || []).map(dbToDependencyTask);
+    } catch (error) {
+      console.error('Error fetching dependency tasks by parent:', error);
+      return [];
+    }
+  },
+
+  async getFullDependencyTasksByAssignee(assigneeId) {
+    try {
+      const { data, error } = await supabase
+        .from('dependency_tasks')
+        .select('*')
+        .eq('assigned_to', assigneeId)
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      return (data || []).map(dbToDependencyTask);
+    } catch (error) {
+      console.error('Error fetching full dependency tasks by assignee:', error);
+      return [];
+    }
+  },
+
+  async getDependencyTasksByBlocker(blockerId) {
+    try {
+      const { data, error } = await supabase
+        .from('dependency_tasks')
+        .select('*')
+        .eq('blocker_id', blockerId)
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      return (data || []).map(dbToDependencyTask);
+    } catch (error) {
+      console.error('Error fetching dependency tasks by blocker:', error);
       return [];
     }
   },
