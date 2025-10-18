@@ -5,15 +5,15 @@ import { toast } from 'react-hot-toast';
 
 const EditTaskModal = ({ task, employees, onClose, onUpdate }) => {
   const [formData, setFormData] = useState({
-    vertical: task.vertical,
-    project: task.project,
-    taskName: task.taskName,
-    taskDescription: task.taskDescription,
-    assignedTo: task.assignedTo,
-    poc: task.poc,
-    deadline: task.deadline,
-    priority: task.priority,
-    status: task.status
+    vertical: task.vertical || '',
+    project: task.project || '',
+    taskName: task.taskName || '',
+    taskDescription: task.taskDescription || '',
+    assignedTo: task.assignedTo || '',
+    poc: task.poc || '',
+    deadline: task.deadline || '',
+    priority: task.priority || 'medium',
+    status: task.status || 'not_started'
   });
 
   const [extensionReason, setExtensionReason] = useState('');
@@ -42,16 +42,16 @@ const EditTaskModal = ({ task, employees, onClose, onUpdate }) => {
 
   const validate = () => {
     const newErrors = {};
-    if (!formData.vertical.trim()) newErrors.vertical = 'Vertical is required';
-    if (!formData.project.trim()) newErrors.project = 'Project name is required';
-    if (!formData.taskName.trim()) newErrors.taskName = 'Task name is required';
-    if (!formData.taskDescription.trim()) newErrors.taskDescription = 'Task description is required';
+    if (!formData.vertical?.trim()) newErrors.vertical = 'Vertical is required';
+    if (!formData.project?.trim()) newErrors.project = 'Project name is required';
+    if (!formData.taskName?.trim()) newErrors.taskName = 'Task name is required';
+    if (!formData.taskDescription?.trim()) newErrors.taskDescription = 'Task description is required';
     if (!formData.assignedTo) newErrors.assignedTo = 'Please select an employee';
-    if (!formData.poc.trim()) newErrors.poc = 'POC is required';
+    if (!formData.poc?.trim()) newErrors.poc = 'POC is required';
     if (!formData.deadline) newErrors.deadline = 'Deadline is required';
 
     // If deadline is extended, reason is required
-    if (isDeadlineExtended && !extensionReason.trim()) {
+    if (isDeadlineExtended && !extensionReason?.trim()) {
       newErrors.extensionReason = 'Extension reason is required';
     }
 
