@@ -44,18 +44,30 @@ const dbToTask = (dbTask) => {
     attachments: dbTask.attachments || [],
     createdAt: dbTask.created_at,
     updatedAt: dbTask.updated_at,
-    
+    poc: dbTask.poc,
+
     // Manager feedback and progress fields
     managerFeedback: dbTask.manager_feedback,
     feedbackHistory: dbTask.feedback_history || [],
     progressPercentage: dbTask.progress_percentage || 0,
     progressNotes: dbTask.progress_notes || [],
-    
+
+    // Review workflow fields
+    reworkHistory: dbTask.rework_history || [],
+    reworkCount: dbTask.rework_count || 0,
+    qualityRating: dbTask.quality_rating,
+    reviewedAt: dbTask.reviewed_at,
+    reviewedBy: dbTask.reviewed_by,
+    reviewedByName: dbTask.reviewed_by_name,
+    acceptedDate: dbTask.accepted_date,
+    submittedForReviewAt: dbTask.submitted_for_review_at,
+    underReviewAt: dbTask.under_review_at,
+
     // Activity and timeline fields
     activityTimeline: dbTask.activity_timeline || [],
     blockerHistory: dbTask.blocker_history || [],
     dependencyTasks: dbTask.dependency_tasks || [],
-    
+
     // Additional fields
     comments: dbTask.comments || [],
     reactions: dbTask.reactions || {},
@@ -430,24 +442,36 @@ const databaseService = {
       if (updates.tags !== undefined) dbUpdates.tags = updates.tags;
       if (updates.attachments !== undefined) dbUpdates.attachments = updates.attachments;
       if (updates.updatedAt !== undefined) dbUpdates.updated_at = updates.updatedAt;
-      
+      if (updates.poc !== undefined) dbUpdates.poc = updates.poc;
+
       // Manager feedback and progress fields
       if (updates.managerFeedback !== undefined) dbUpdates.manager_feedback = updates.managerFeedback;
       if (updates.feedbackHistory !== undefined) dbUpdates.feedback_history = updates.feedbackHistory;
       if (updates.progressPercentage !== undefined) dbUpdates.progress_percentage = updates.progressPercentage;
       if (updates.progressNotes !== undefined) dbUpdates.progress_notes = updates.progressNotes;
-      
+
+      // Review workflow fields
+      if (updates.reworkHistory !== undefined) dbUpdates.rework_history = updates.reworkHistory;
+      if (updates.reworkCount !== undefined) dbUpdates.rework_count = updates.reworkCount;
+      if (updates.qualityRating !== undefined) dbUpdates.quality_rating = updates.qualityRating;
+      if (updates.reviewedAt !== undefined) dbUpdates.reviewed_at = updates.reviewedAt;
+      if (updates.reviewedBy !== undefined) dbUpdates.reviewed_by = updates.reviewedBy;
+      if (updates.reviewedByName !== undefined) dbUpdates.reviewed_by_name = updates.reviewedByName;
+      if (updates.acceptedDate !== undefined) dbUpdates.accepted_date = updates.acceptedDate;
+      if (updates.submittedForReviewAt !== undefined) dbUpdates.submitted_for_review_at = updates.submittedForReviewAt;
+      if (updates.underReviewAt !== undefined) dbUpdates.under_review_at = updates.underReviewAt;
+
       // Activity and timeline fields
       if (updates.activityTimeline !== undefined) dbUpdates.activity_timeline = updates.activityTimeline;
       if (updates.blockerHistory !== undefined) dbUpdates.blocker_history = updates.blockerHistory;
       if (updates.dependencyTasks !== undefined) dbUpdates.dependency_tasks = updates.dependencyTasks;
-      
+
       // Additional fields
       if (updates.comments !== undefined) dbUpdates.comments = updates.comments;
       if (updates.reactions !== undefined) dbUpdates.reactions = updates.reactions;
       if (updates.isBlocked !== undefined) dbUpdates.is_blocked = updates.isBlocked;
       if (updates.blockedReason !== undefined) dbUpdates.blocked_reason = updates.blockedReason;
-      
+
       // UI-only fields (don't send to database)
       // hasNewFeedback is a UI flag, not a database column - ignore it
 
