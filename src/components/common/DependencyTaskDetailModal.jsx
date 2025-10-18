@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Link, Calendar, User, FileText, MessageCircle, CheckCircle, ArrowLeft, Loader } from 'lucide-react';
+import { X, Link, Calendar, User, FileText, MessageCircle, CheckCircle, ArrowLeft, Loader, XCircle } from 'lucide-react';
 import { db } from '../../services/databaseService';
 import { formatDateTime } from '../../utils/helpers';
 import { DEPENDENCY_STATUS, TASK_STATUS } from '../../utils/taskConstants';
