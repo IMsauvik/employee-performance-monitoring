@@ -1,4 +1,4 @@
-import { CheckCircle, Circle, Clock, PlayCircle, Ban, Rocket, Zap, Send, Eye, Star } from 'lucide-react';
+import { CheckCircle, Circle, Clock, Ban, Rocket, Zap } from 'lucide-react';
 import { TASK_STATUS, STATUS_INFO } from '../../utils/taskConstants';
 
 const TaskStatusJourney = ({ currentStatus, onStatusChange, userRole = 'employee' }) => {
