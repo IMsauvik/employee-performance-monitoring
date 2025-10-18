@@ -390,9 +390,11 @@ const EmployeeTaskDetailModal = ({ task, onClose, onUpdate }) => {
             createdDependencies.push(createdTask.id);
           } else {
             console.error('❌ Failed to create dependency task - no ID returned');
+            console.error('❌ Response was:', createdTask);
           }
         } catch (error) {
           console.error('❌ Error creating dependency task for user:', userId, error);
+          console.error('❌ Full error details:', error.message, error.stack);
         }
       }
 
