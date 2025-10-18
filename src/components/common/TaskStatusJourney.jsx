@@ -1,4 +1,4 @@
-import { CheckCircle, Circle, Clock, Ban, Rocket, Zap } from 'lucide-react';
+import { CheckCircle, Circle, Ban, Rocket, Zap } from 'lucide-react';
 import { TASK_STATUS, STATUS_INFO } from '../../utils/taskConstants';
 
 const TaskStatusJourney = ({ currentStatus, onStatusChange, userRole = 'employee' }) => {
@@ -78,7 +78,7 @@ const TaskStatusJourney = ({ currentStatus, onStatusChange, userRole = 'employee
         <h3 className="text-xl font-bold text-gray-900">Task Journey</h3>
         {currentStepIndex >= 0 && (
           <div className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-indigo-500 to-purple-500 text-white rounded-full shadow-lg">
-            <Clock className="w-4 h-4" />
+            <Circle className="w-4 h-4 fill-current" />
             <span className="text-sm font-semibold">Step {currentStepIndex + 1} of {employeeJourneySteps.length}</span>
           </div>
         )}
