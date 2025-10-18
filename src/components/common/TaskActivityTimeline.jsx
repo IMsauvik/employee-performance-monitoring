@@ -1,4 +1,4 @@
-import { Clock, MessageCircle, CheckCircle, XCircle, AlertCircle, Edit, User, Calendar, Ban } from 'lucide-react';
+import { MessageCircle, CheckCircle, XCircle, AlertCircle, Edit, User, Calendar, Ban, Loader } from 'lucide-react';
 import { formatDateTime } from '../../utils/helpers';
 import { ACTIVITY_TYPE } from '../../utils/taskConstants';
 import { storage } from '../../utils/storage';
@@ -33,7 +33,7 @@ const TaskActivityTimeline = ({ activities = [], feedback = [] }) => {
       case ACTIVITY_TYPE.ASSIGNMENT:
         return <User className="w-4 h-4" />;
       default:
-        return <Clock className="w-4 h-4" />;
+        return <AlertCircle className="w-4 h-4" />;
     }
   };
 
@@ -65,7 +65,7 @@ const TaskActivityTimeline = ({ activities = [], feedback = [] }) => {
   if (!activities || activities.length === 0) {
     return (
       <div className="text-center py-8 text-gray-500">
-        <Clock className="w-12 h-12 mx-auto mb-2 text-gray-300" />
+        <AlertCircle className="w-12 h-12 mx-auto mb-2 text-gray-300" />
         <p className="text-sm">No activity yet</p>
       </div>
     );
