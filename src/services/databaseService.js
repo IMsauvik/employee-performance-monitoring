@@ -163,6 +163,7 @@ const dbToDependencyTask = (dbDepTask) => {
     assignedByName: dbDepTask.assigned_by_name,
     dueDate: dbDepTask.due_date,
     completedAt: dbDepTask.completed_at,
+    submittedForReview: dbDepTask.submitted_for_review || false,
     acceptedBy: dbDepTask.accepted_by,
     acceptedByName: dbDepTask.accepted_by_name,
     acceptedAt: dbDepTask.accepted_at,
@@ -1016,6 +1017,7 @@ const databaseService = {
       if (updates.status !== undefined) dbUpdates.status = updates.status;
       if (updates.dueDate !== undefined) dbUpdates.due_date = updates.dueDate;
       if (updates.completedAt !== undefined) dbUpdates.completed_at = updates.completedAt;
+      if (updates.submittedForReview !== undefined) dbUpdates.submitted_for_review = updates.submittedForReview;
       if (updates.acceptedBy !== undefined) dbUpdates.accepted_by = updates.acceptedBy;
       if (updates.acceptedByName !== undefined) dbUpdates.accepted_by_name = updates.acceptedByName;
       if (updates.acceptedAt !== undefined) dbUpdates.accepted_at = updates.acceptedAt;

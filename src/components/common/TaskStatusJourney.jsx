@@ -2,12 +2,13 @@ import { CheckCircle, Circle, Clock, PlayCircle, Ban, Rocket, Zap, Send, Eye, St
 import { TASK_STATUS, STATUS_INFO } from '../../utils/taskConstants';
 
 const TaskStatusJourney = ({ currentStatus, onStatusChange, userRole = 'employee' }) => {
-  // Define the complete review workflow journey
+  // Simple 3-stage journey for employees
+  // Submission and review handled separately via buttons
   const employeeJourneySteps = [
     {
       status: TASK_STATUS.NOT_STARTED,
       label: 'Not Started',
-      description: 'Ready to begin',
+      description: 'Ready to begin your task',
       icon: Rocket,
       color: 'text-gray-400',
       activeColor: 'text-indigo-600',
@@ -35,7 +36,7 @@ const TaskStatusJourney = ({ currentStatus, onStatusChange, userRole = 'employee
     {
       status: TASK_STATUS.BLOCKED,
       label: 'Blocked',
-      description: 'Needs help',
+      description: 'Needs attention',
       icon: Ban,
       color: 'text-orange-400',
       activeColor: 'text-orange-600',
@@ -45,68 +46,18 @@ const TaskStatusJourney = ({ currentStatus, onStatusChange, userRole = 'employee
       activeBorderColor: 'border-orange-600',
       gradient: 'from-orange-500 to-red-500',
       clickable: true
-    },
-    {
-      status: TASK_STATUS.SUBMITTED,
-      label: 'Submitted',
-      description: 'Awaiting review',
-      icon: Send,
-      color: 'text-purple-400',
-      activeColor: 'text-purple-600',
-      bgColor: 'bg-purple-50',
-      activeBgColor: 'bg-purple-100',
-      borderColor: 'border-purple-300',
-      activeBorderColor: 'border-purple-600',
-      gradient: 'from-purple-500 to-pink-500',
-      clickable: false // Can only submit via button, not by clicking
-    },
-    {
-      status: TASK_STATUS.UNDER_REVIEW,
-      label: 'Under Review',
-      description: 'Manager reviewing',
-      icon: Eye,
-      color: 'text-indigo-400',
-      activeColor: 'text-indigo-600',
-      bgColor: 'bg-indigo-50',
-      activeBgColor: 'bg-indigo-100',
-      borderColor: 'border-indigo-300',
-      activeBorderColor: 'border-indigo-600',
-      gradient: 'from-indigo-500 to-purple-500',
-      clickable: false // Manager-only action
-    },
-    {
-      status: TASK_STATUS.ACCEPTED,
-      label: 'Accepted',
-      description: 'Work approved',
-      icon: Star,
-      color: 'text-green-400',
-      activeColor: 'text-green-600',
-      bgColor: 'bg-green-50',
-      activeBgColor: 'bg-green-100',
-      borderColor: 'border-green-300',
-      activeBorderColor: 'border-green-600',
-      gradient: 'from-green-500 to-emerald-600',
-      clickable: false // Manager-only action
-    },
-    {
-      status: TASK_STATUS.COMPLETED,
-      label: 'Completed',
-      description: 'Task finished',
-      icon: CheckCircle,
-      color: 'text-emerald-400',
-      activeColor: 'text-emerald-600',
-      bgColor: 'bg-emerald-50',
-      activeBgColor: 'bg-emerald-100',
-      borderColor: 'border-emerald-300',
-      activeBorderColor: 'border-emerald-600',
-      gradient: 'from-emerald-500 to-green-600',
-      clickable: false // Final state
     }
   ];
 
   const getCurrentStepIndex = () => {
-    // Handle rework_required status - show it at the In Progress stage
-    if (currentStatus === TASK_STATUS.REWORK_REQUIRED) {
+    // Map all statuses to the 3-stage journey
+    // Review statuses (submitted, under_review, accepted, completed) show as "In Progress"
+    // since they're handled separately via buttons and status displays
+    if (currentStatus === TASK_STATUS.REWORK_REQUIRED ||
+        currentStatus === TASK_STATUS.SUBMITTED ||
+        currentStatus === TASK_STATUS.UNDER_REVIEW ||
+        currentStatus === TASK_STATUS.ACCEPTED ||
+        currentStatus === TASK_STATUS.COMPLETED) {
       return employeeJourneySteps.findIndex(step => step.status === TASK_STATUS.IN_PROGRESS);
     }
     return employeeJourneySteps.findIndex(step => step.status === currentStatus);
@@ -114,8 +65,12 @@ const TaskStatusJourney = ({ currentStatus, onStatusChange, userRole = 'employee
 
   const currentStepIndex = getCurrentStepIndex();
 
-  // Special handling for REWORK_REQUIRED - it goes back to In Progress stage
+  // Special handling for review/completion statuses
   const isReworkRequired = currentStatus === TASK_STATUS.REWORK_REQUIRED;
+  const isSubmitted = currentStatus === TASK_STATUS.SUBMITTED;
+  const isUnderReview = currentStatus === TASK_STATUS.UNDER_REVIEW;
+  const isAccepted = currentStatus === TASK_STATUS.ACCEPTED;
+  const isCompleted = currentStatus === TASK_STATUS.COMPLETED;
 
   return (
     <div className="w-full">
@@ -253,24 +208,31 @@ const TaskStatusJourney = ({ currentStatus, onStatusChange, userRole = 'employee
                 </p>
               </div>
             )}
-            {currentStatus === TASK_STATUS.SUBMITTED && (
+            {isSubmitted && (
               <div className="mt-3 p-3 bg-white bg-opacity-60 rounded-lg border border-purple-200">
                 <p className="text-sm text-purple-800 font-medium">
-                  ⏳ Your work is waiting for manager review. You'll be notified once reviewed.
+                  ⏳ Task submitted for review. Waiting for manager feedback.
                 </p>
               </div>
             )}
-            {currentStatus === TASK_STATUS.UNDER_REVIEW && (
+            {isUnderReview && (
               <div className="mt-3 p-3 bg-white bg-opacity-60 rounded-lg border border-indigo-200">
                 <p className="text-sm text-indigo-800 font-medium">
                   👀 Manager is currently reviewing your work. Please wait for feedback.
                 </p>
               </div>
             )}
-            {currentStatus === TASK_STATUS.ACCEPTED && (
+            {isAccepted && (
               <div className="mt-3 p-3 bg-white bg-opacity-60 rounded-lg border border-green-200">
                 <p className="text-sm text-green-800 font-medium">
-                  🎉 Great job! Your work has been approved by the manager!
+                  ✅ Work approved! Task will be marked as completed by manager.
+                </p>
+              </div>
+            )}
+            {isCompleted && (
+              <div className="mt-3 p-3 bg-white bg-opacity-60 rounded-lg border border-green-200">
+                <p className="text-sm text-green-800 font-medium">
+                  🎉 Task completed! Great job!
                 </p>
               </div>
             )}
