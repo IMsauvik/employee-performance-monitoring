@@ -1,4 +1,9 @@
 {
+  "buildCommand": "rm -rf node_modules package-lock.json && npm install && npm run build",
+  "outputDirectory": "dist",
+  "devCommand": "npm run dev",
+  "installCommand": "rm -rf node_modules package-lock.json && npm install",
+  "framework": "vite",
   "rewrites": [
     {
       "source": "/(.*)",
