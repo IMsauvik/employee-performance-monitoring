@@ -1,13 +1,13 @@
-import { CheckCircle, Circle, Clock, PlayCircle, Ban, Rocket, Zap } from 'lucide-react';
+import { CheckCircle, Circle, Clock, PlayCircle, Ban, Rocket, Zap, Send, Eye, Star } from 'lucide-react';
 import { TASK_STATUS, STATUS_INFO } from '../../utils/taskConstants';
 
 const TaskStatusJourney = ({ currentStatus, onStatusChange, userRole = 'employee' }) => {
-  // Define the journey steps for employees
+  // Define the complete review workflow journey
   const employeeJourneySteps = [
     {
       status: TASK_STATUS.NOT_STARTED,
       label: 'Not Started',
-      description: 'Ready to begin your task',
+      description: 'Ready to begin',
       icon: Rocket,
       color: 'text-gray-400',
       activeColor: 'text-indigo-600',
@@ -15,7 +15,8 @@ const TaskStatusJourney = ({ currentStatus, onStatusChange, userRole = 'employee
       activeBgColor: 'bg-indigo-50',
       borderColor: 'border-gray-300',
       activeBorderColor: 'border-indigo-500',
-      gradient: 'from-gray-400 to-gray-500'
+      gradient: 'from-gray-400 to-gray-500',
+      clickable: true
     },
     {
       status: TASK_STATUS.IN_PROGRESS,
@@ -28,12 +29,13 @@ const TaskStatusJourney = ({ currentStatus, onStatusChange, userRole = 'employee
       activeBgColor: 'bg-blue-100',
       borderColor: 'border-blue-300',
       activeBorderColor: 'border-blue-600',
-      gradient: 'from-blue-500 to-cyan-500'
+      gradient: 'from-blue-500 to-cyan-500',
+      clickable: true
     },
     {
       status: TASK_STATUS.BLOCKED,
       label: 'Blocked',
-      description: 'Needs attention',
+      description: 'Needs help',
       icon: Ban,
       color: 'text-orange-400',
       activeColor: 'text-orange-600',
@@ -41,28 +43,79 @@ const TaskStatusJourney = ({ currentStatus, onStatusChange, userRole = 'employee
       activeBgColor: 'bg-orange-100',
       borderColor: 'border-orange-300',
       activeBorderColor: 'border-orange-600',
-      gradient: 'from-orange-500 to-red-500'
+      gradient: 'from-orange-500 to-red-500',
+      clickable: true
     },
     {
-      status: TASK_STATUS.COMPLETED,
-      label: 'Completed',
-      description: 'Task finished!',
-      icon: CheckCircle,
+      status: TASK_STATUS.SUBMITTED,
+      label: 'Submitted',
+      description: 'Awaiting review',
+      icon: Send,
+      color: 'text-purple-400',
+      activeColor: 'text-purple-600',
+      bgColor: 'bg-purple-50',
+      activeBgColor: 'bg-purple-100',
+      borderColor: 'border-purple-300',
+      activeBorderColor: 'border-purple-600',
+      gradient: 'from-purple-500 to-pink-500',
+      clickable: false // Can only submit via button, not by clicking
+    },
+    {
+      status: TASK_STATUS.UNDER_REVIEW,
+      label: 'Under Review',
+      description: 'Manager reviewing',
+      icon: Eye,
+      color: 'text-indigo-400',
+      activeColor: 'text-indigo-600',
+      bgColor: 'bg-indigo-50',
+      activeBgColor: 'bg-indigo-100',
+      borderColor: 'border-indigo-300',
+      activeBorderColor: 'border-indigo-600',
+      gradient: 'from-indigo-500 to-purple-500',
+      clickable: false // Manager-only action
+    },
+    {
+      status: TASK_STATUS.ACCEPTED,
+      label: 'Accepted',
+      description: 'Work approved',
+      icon: Star,
       color: 'text-green-400',
       activeColor: 'text-green-600',
       bgColor: 'bg-green-50',
       activeBgColor: 'bg-green-100',
       borderColor: 'border-green-300',
       activeBorderColor: 'border-green-600',
-      gradient: 'from-green-500 to-emerald-600'
+      gradient: 'from-green-500 to-emerald-600',
+      clickable: false // Manager-only action
+    },
+    {
+      status: TASK_STATUS.COMPLETED,
+      label: 'Completed',
+      description: 'Task finished',
+      icon: CheckCircle,
+      color: 'text-emerald-400',
+      activeColor: 'text-emerald-600',
+      bgColor: 'bg-emerald-50',
+      activeBgColor: 'bg-emerald-100',
+      borderColor: 'border-emerald-300',
+      activeBorderColor: 'border-emerald-600',
+      gradient: 'from-emerald-500 to-green-600',
+      clickable: false // Final state
     }
   ];
 
   const getCurrentStepIndex = () => {
+    // Handle rework_required status - show it at the In Progress stage
+    if (currentStatus === TASK_STATUS.REWORK_REQUIRED) {
+      return employeeJourneySteps.findIndex(step => step.status === TASK_STATUS.IN_PROGRESS);
+    }
     return employeeJourneySteps.findIndex(step => step.status === currentStatus);
   };
 
   const currentStepIndex = getCurrentStepIndex();
+
+  // Special handling for REWORK_REQUIRED - it goes back to In Progress stage
+  const isReworkRequired = currentStatus === TASK_STATUS.REWORK_REQUIRED;
 
   return (
     <div className="w-full">
@@ -96,7 +149,7 @@ const TaskStatusJourney = ({ currentStatus, onStatusChange, userRole = 'employee
             const Icon = step.icon;
             const isActive = step.status === currentStatus;
             const isPast = index < currentStepIndex;
-            const isClickable = true;
+            const isClickable = step.clickable !== false; // Use step's clickable property
 
             return (
               <div key={step.status} className="flex flex-col items-center flex-1">
@@ -160,18 +213,24 @@ const TaskStatusJourney = ({ currentStatus, onStatusChange, userRole = 'employee
 
       {/* Status Info Card */}
       <div className={`mt-8 p-6 rounded-xl border-2 shadow-lg ${
-        currentStepIndex >= 0
+        isReworkRequired
+          ? 'bg-gradient-to-br bg-red-50 border-red-300'
+          : currentStepIndex >= 0
           ? `bg-gradient-to-br ${employeeJourneySteps[currentStepIndex].activeBgColor} ${employeeJourneySteps[currentStepIndex].activeBorderColor}`
           : 'bg-gray-50 border-gray-200'
       }`}>
         <div className="flex items-start gap-4">
           <div className={`flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center ${
-            currentStepIndex >= 0 ? `bg-gradient-to-br ${employeeJourneySteps[currentStepIndex].gradient}` : 'bg-gray-400'
+            isReworkRequired
+              ? 'bg-gradient-to-br from-red-500 to-orange-500'
+              : currentStepIndex >= 0 ? `bg-gradient-to-br ${employeeJourneySteps[currentStepIndex].gradient}` : 'bg-gray-400'
           } shadow-lg`}>
-            {currentStepIndex >= 0 && (() => {
+            {isReworkRequired ? (
+              <Ban className="w-7 h-7 text-white" />
+            ) : currentStepIndex >= 0 ? (() => {
               const Icon = employeeJourneySteps[currentStepIndex].icon;
               return <Icon className="w-7 h-7 text-white" />;
-            })()}
+            })() : null}
           </div>
           <div className="flex-1">
             <p className="text-lg font-bold text-gray-900 mb-1">
@@ -187,6 +246,34 @@ const TaskStatusJourney = ({ currentStatus, onStatusChange, userRole = 'employee
                 </p>
               </div>
             )}
+            {isReworkRequired && (
+              <div className="mt-3 p-3 bg-white bg-opacity-60 rounded-lg border border-red-200">
+                <p className="text-sm text-red-800 font-medium">
+                  ⚠️ Manager requested changes. Please review feedback above and resubmit.
+                </p>
+              </div>
+            )}
+            {currentStatus === TASK_STATUS.SUBMITTED && (
+              <div className="mt-3 p-3 bg-white bg-opacity-60 rounded-lg border border-purple-200">
+                <p className="text-sm text-purple-800 font-medium">
+                  ⏳ Your work is waiting for manager review. You'll be notified once reviewed.
+                </p>
+              </div>
+            )}
+            {currentStatus === TASK_STATUS.UNDER_REVIEW && (
+              <div className="mt-3 p-3 bg-white bg-opacity-60 rounded-lg border border-indigo-200">
+                <p className="text-sm text-indigo-800 font-medium">
+                  👀 Manager is currently reviewing your work. Please wait for feedback.
+                </p>
+              </div>
+            )}
+            {currentStatus === TASK_STATUS.ACCEPTED && (
+              <div className="mt-3 p-3 bg-white bg-opacity-60 rounded-lg border border-green-200">
+                <p className="text-sm text-green-800 font-medium">
+                  🎉 Great job! Your work has been approved by the manager!
+                </p>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -194,7 +281,7 @@ const TaskStatusJourney = ({ currentStatus, onStatusChange, userRole = 'employee
       {/* Helper Text */}
       <div className="mt-4 flex items-center justify-center gap-2 text-sm text-gray-600">
         <Circle className="w-4 h-4" />
-        <p>Click on any stage above to update your task status</p>
+        <p>Click on available stages to update your task status</p>
       </div>
     </div>
   );
