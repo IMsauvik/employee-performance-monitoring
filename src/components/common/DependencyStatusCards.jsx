@@ -1,4 +1,4 @@
-import { CheckCircle, XCircle, Clock, User, AlertCircle } from 'lucide-react';
+import { CheckCircle, XCircle, User, AlertCircle, Loader } from 'lucide-react';
 import { storage } from '../../utils/storage';
 import { DEPENDENCY_STATUS } from '../../utils/taskConstants';
 
@@ -12,7 +12,7 @@ const DependencyStatusCards = ({ dependencies, onDependencyClick, onAccept, onRe
       case DEPENDENCY_STATUS.COMPLETED:
         return <CheckCircle className="w-5 h-5 text-green-600" />;
       case DEPENDENCY_STATUS.IN_PROGRESS:
-        return <Clock className="w-5 h-5 text-blue-600" />;
+        return <Loader className="w-5 h-5 text-blue-600 animate-spin" />;
       case 'rejected':
         return <XCircle className="w-5 h-5 text-red-600" />;
       default:

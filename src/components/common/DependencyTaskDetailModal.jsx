@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Link, Calendar, User, FileText, MessageCircle, CheckCircle, ArrowLeft } from 'lucide-react';
+import { X, Link, Calendar, User, FileText, MessageCircle, CheckCircle, ArrowLeft, Loader } from 'lucide-react';
 import { db } from '../../services/databaseService';
 import { formatDateTime } from '../../utils/helpers';
 import { DEPENDENCY_STATUS, TASK_STATUS } from '../../utils/taskConstants';
@@ -404,7 +404,7 @@ const DependencyTaskDetailModal = ({ dependencyTaskId, onClose, currentUser }) =
             <div className="bg-yellow-50 border-2 border-yellow-300 rounded-xl p-5">
               <div className="flex items-start gap-3">
                 <div className="w-10 h-10 rounded-full bg-yellow-500 flex items-center justify-center flex-shrink-0">
-                  <Clock className="w-6 h-6 text-white" />
+                  <Loader className="w-6 h-6 text-white animate-spin" />
                 </div>
                 <div className="flex-1">
                   <h4 className="font-bold text-yellow-900 text-lg mb-1">Awaiting Review</h4>
