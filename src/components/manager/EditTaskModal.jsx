@@ -7,11 +7,11 @@ const EditTaskModal = ({ task, employees, onClose, onUpdate }) => {
   const [formData, setFormData] = useState({
     vertical: task.vertical || '',
     project: task.project || '',
-    taskName: task.taskName || '',
-    taskDescription: task.taskDescription || '',
+    taskName: task.taskName || task.title || '',
+    taskDescription: task.taskDescription || task.description || '',
     assignedTo: task.assignedTo || '',
     poc: task.poc || '',
-    deadline: task.deadline || '',
+    deadline: task.deadline || task.dueDate || '',
     priority: task.priority || 'medium',
     status: task.status || 'not_started'
   });
@@ -20,7 +20,7 @@ const EditTaskModal = ({ task, employees, onClose, onUpdate }) => {
   const [showExtensionInput, setShowExtensionInput] = useState(false);
   const [errors, setErrors] = useState({});
 
-  const originalDeadline = task.deadline;
+  const originalDeadline = task.deadline || task.dueDate || '';
   const isDeadlineExtended = formData.deadline !== originalDeadline;
 
   const handleChange = (e) => {
