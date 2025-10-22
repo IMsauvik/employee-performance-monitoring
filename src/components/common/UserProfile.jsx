@@ -21,7 +21,7 @@ const UserProfile = () => {
     email: '',
     department: '',
     phone: '',
-    location: '',
+    address: '',
     password: '',
     confirmPassword: ''
   });
@@ -55,7 +55,7 @@ const UserProfile = () => {
         email: userToDisplay?.email || '',
         department: userToDisplay?.department || '',
         phone: userToDisplay?.phone || '',
-        location: userToDisplay?.location || '',
+        address: userToDisplay?.address || '',
         password: '',
         confirmPassword: ''
       });
@@ -109,7 +109,7 @@ const UserProfile = () => {
         email: formData.email,
         department: formData.department,
         phone: formData.phone,
-        location: formData.location,
+        address: formData.address,
         ...(formData.password && { password: formData.password })
       };
 
@@ -145,7 +145,7 @@ const UserProfile = () => {
       email: profileUser?.email || '',
       department: profileUser?.department || '',
       phone: profileUser?.phone || '',
-      location: profileUser?.location || '',
+      address: profileUser?.address || '',
       password: '',
       confirmPassword: ''
     });
@@ -343,23 +343,23 @@ const UserProfile = () => {
                 )}
               </div>
 
-              {/* Location */}
+              {/* Address */}
               <div className="space-y-2">
                 <label className="flex items-center text-sm font-semibold text-gray-700">
                   <MapPin className="w-4 h-4 mr-2 text-gray-500" />
-                  Location
+                  Address
                 </label>
                 {isEditing ? (
                   <input
                     type="text"
-                    name="location"
-                    value={formData.location}
+                    name="address"
+                    value={formData.address}
                     onChange={handleInputChange}
                     className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-accent-500 focus:border-transparent transition-all"
-                    placeholder="City, Country"
+                    placeholder="Full Address"
                   />
                 ) : (
-                  <p className="text-gray-900 px-4 py-3 bg-gray-50 rounded-xl">{profileUser?.location || 'Not specified'}</p>
+                  <p className="text-gray-900 px-4 py-3 bg-gray-50 rounded-xl">{profileUser?.address || 'Not specified'}</p>
                 )}
               </div>
 
