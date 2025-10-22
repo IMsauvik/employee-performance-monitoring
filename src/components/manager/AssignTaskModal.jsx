@@ -132,6 +132,7 @@ const AssignTaskModal = ({ employees, onClose, onAssign }) => {
       assignedTo: formData.assignedTo,
       assignedBy: currentUser.id,
       assignedByName: currentUser.name,
+      poc: formData.poc, // Point of Contact (manager who assigned the task)
       project: formData.project,
       vertical: formData.vertical,
       priority: formData.priority,
