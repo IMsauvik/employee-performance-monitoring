@@ -376,6 +376,7 @@ const databaseService = {
         description: taskData.description,
         assigned_to: taskData.assignedTo,
         assigned_by: taskData.assignedBy,
+        poc: taskData.poc,
         project: taskData.project,
         vertical: taskData.vertical,
         priority: taskData.priority,
