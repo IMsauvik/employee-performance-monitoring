@@ -1,24 +1,68 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { User, Mail, Briefcase, Building, Phone, MapPin, Calendar, ArrowLeft, Save, X, Camera } from 'lucide-react';
 import Header from './Header';
 import { storage } from '../../utils/storage';
+import db from '../../services/databaseService';
 import toast from 'react-hot-toast';
 
 const UserProfile = () => {
   const { currentUser, login } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const userIdFromUrl = searchParams.get('userId');
+
+  // Determine which user to display/edit
+  const [profileUser, setProfileUser] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({
-    name: currentUser?.name || '',
-    email: currentUser?.email || '',
-    department: currentUser?.department || '',
-    phone: currentUser?.phone || '',
-    location: currentUser?.location || '',
+    name: '',
+    email: '',
+    department: '',
+    phone: '',
+    location: '',
     password: '',
     confirmPassword: ''
   });
+
+  // Load the user data (either from URL param or current user)
+  useEffect(() => {
+    const loadUserData = async () => {
+      let userToDisplay = currentUser;
+
+      // If userId is provided in URL, load that user's data
+      if (userIdFromUrl && currentUser?.role === 'admin') {
+        try {
+          const users = await db.getUsers();
+          const foundUser = users.find(u => u.id === userIdFromUrl);
+          if (foundUser) {
+            userToDisplay = foundUser;
+          } else {
+            toast.error('User not found');
+            navigate('/admin/users');
+            return;
+          }
+        } catch (error) {
+          console.error('Error loading user:', error);
+          toast.error('Failed to load user data');
+        }
+      }
+
+      setProfileUser(userToDisplay);
+      setFormData({
+        name: userToDisplay?.name || '',
+        email: userToDisplay?.email || '',
+        department: userToDisplay?.department || '',
+        phone: userToDisplay?.phone || '',
+        location: userToDisplay?.location || '',
+        password: '',
+        confirmPassword: ''
+      });
+    };
+
+    loadUserData();
+  }, [userIdFromUrl, currentUser, navigate]);
 
   const navigation = currentUser?.role === 'admin'
     ? [
@@ -42,7 +86,9 @@ const UserProfile = () => {
     });
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    if (!profileUser) return;
+
     // Validate passwords if they're being changed
     if (formData.password) {
       if (formData.password !== formData.confirmPassword) {
@@ -55,14 +101,10 @@ const UserProfile = () => {
       }
     }
 
-    // Get all users
-    const users = storage.getUsers();
-    const userIndex = users.findIndex(u => u.id === currentUser.id);
-
-    if (userIndex !== -1) {
-      // Update user data
-      users[userIndex] = {
-        ...users[userIndex],
+    try {
+      // Prepare updated user data
+      const updatedUserData = {
+        ...profileUser,
         name: formData.name,
         email: formData.email,
         department: formData.department,
@@ -71,11 +113,16 @@ const UserProfile = () => {
         ...(formData.password && { password: formData.password })
       };
 
-      // Save to storage
-      storage.setUsers(users);
+      // Update user in database
+      await db.updateUser(profileUser.id, updatedUserData);
 
-      // Re-login with updated credentials
-      login(formData.email, formData.password || currentUser.password);
+      // Update local profileUser state
+      setProfileUser(updatedUserData);
+
+      // Re-login ONLY if editing own profile
+      if (profileUser.id === currentUser.id) {
+        login(formData.email, formData.password || currentUser.password);
+      }
 
       toast.success('Profile updated successfully!');
       setIsEditing(false);
@@ -86,16 +133,19 @@ const UserProfile = () => {
         password: '',
         confirmPassword: ''
       });
+    } catch (error) {
+      console.error('Error updating user:', error);
+      toast.error('Failed to update profile');
     }
   };
 
   const handleCancel = () => {
     setFormData({
-      name: currentUser?.name || '',
-      email: currentUser?.email || '',
-      department: currentUser?.department || '',
-      phone: currentUser?.phone || '',
-      location: currentUser?.location || '',
+      name: profileUser?.name || '',
+      email: profileUser?.email || '',
+      department: profileUser?.department || '',
+      phone: profileUser?.phone || '',
+      location: profileUser?.location || '',
       password: '',
       confirmPassword: ''
     });
@@ -128,6 +178,18 @@ const UserProfile = () => {
     }
   };
 
+  // Show loading state while profileUser is being loaded
+  if (!profileUser) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading profile...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
       <Header title="User Profile" navigation={navigation} />
@@ -145,13 +207,13 @@ const UserProfile = () => {
         {/* Profile Card */}
         <div className="bg-white rounded-2xl shadow-xl overflow-hidden animate-slideIn">
           {/* Header Section with Gradient */}
-          <div className={`h-32 bg-gradient-to-r ${getRoleColor(currentUser?.role)} relative`}>
+          <div className={`h-32 bg-gradient-to-r ${getRoleColor(profileUser?.role)} relative`}>
             <div className="absolute -bottom-16 left-8">
               <div className="relative">
                 <div className="w-32 h-32 rounded-full bg-white p-2 shadow-2xl">
-                  <div className={`w-full h-full rounded-full bg-gradient-to-br ${getRoleColor(currentUser?.role)} flex items-center justify-center`}>
+                  <div className={`w-full h-full rounded-full bg-gradient-to-br ${getRoleColor(profileUser?.role)} flex items-center justify-center`}>
                     <span className="text-white text-4xl font-bold">
-                      {currentUser?.name?.charAt(0)}
+                      {profileUser?.name?.charAt(0)}
                     </span>
                   </div>
                 </div>
@@ -168,9 +230,9 @@ const UserProfile = () => {
           <div className="pt-20 px-8 pb-8">
             <div className="flex items-start justify-between mb-6">
               <div>
-                <h1 className="text-3xl font-bold text-gray-900 mb-2">{currentUser?.name}</h1>
-                <span className={`inline-block px-3 py-1 rounded-full text-sm font-semibold ${getRoleBadgeColor(currentUser?.role)} capitalize`}>
-                  {currentUser?.role}
+                <h1 className="text-3xl font-bold text-gray-900 mb-2">{profileUser?.name}</h1>
+                <span className={`inline-block px-3 py-1 rounded-full text-sm font-semibold ${getRoleBadgeColor(profileUser?.role)} capitalize`}>
+                  {profileUser?.role}
                 </span>
               </div>
 
@@ -219,7 +281,7 @@ const UserProfile = () => {
                     className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-accent-500 focus:border-transparent transition-all"
                   />
                 ) : (
-                  <p className="text-gray-900 px-4 py-3 bg-gray-50 rounded-xl">{currentUser?.name}</p>
+                  <p className="text-gray-900 px-4 py-3 bg-gray-50 rounded-xl">{profileUser?.name}</p>
                 )}
               </div>
 
@@ -238,7 +300,7 @@ const UserProfile = () => {
                     className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-accent-500 focus:border-transparent transition-all"
                   />
                 ) : (
-                  <p className="text-gray-900 px-4 py-3 bg-gray-50 rounded-xl">{currentUser?.email}</p>
+                  <p className="text-gray-900 px-4 py-3 bg-gray-50 rounded-xl">{profileUser?.email}</p>
                 )}
               </div>
 
@@ -257,7 +319,7 @@ const UserProfile = () => {
                     className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-accent-500 focus:border-transparent transition-all"
                   />
                 ) : (
-                  <p className="text-gray-900 px-4 py-3 bg-gray-50 rounded-xl">{currentUser?.department || 'Not specified'}</p>
+                  <p className="text-gray-900 px-4 py-3 bg-gray-50 rounded-xl">{profileUser?.department || 'Not specified'}</p>
                 )}
               </div>
 
@@ -277,7 +339,7 @@ const UserProfile = () => {
                     placeholder="+1 (555) 000-0000"
                   />
                 ) : (
-                  <p className="text-gray-900 px-4 py-3 bg-gray-50 rounded-xl">{currentUser?.phone || 'Not specified'}</p>
+                  <p className="text-gray-900 px-4 py-3 bg-gray-50 rounded-xl">{profileUser?.phone || 'Not specified'}</p>
                 )}
               </div>
 
@@ -297,7 +359,7 @@ const UserProfile = () => {
                     placeholder="City, Country"
                   />
                 ) : (
-                  <p className="text-gray-900 px-4 py-3 bg-gray-50 rounded-xl">{currentUser?.location || 'Not specified'}</p>
+                  <p className="text-gray-900 px-4 py-3 bg-gray-50 rounded-xl">{profileUser?.location || 'Not specified'}</p>
                 )}
               </div>
 
@@ -308,7 +370,7 @@ const UserProfile = () => {
                   Member Since
                 </label>
                 <p className="text-gray-900 px-4 py-3 bg-gray-50 rounded-xl">
-                  {currentUser?.createdAt ? new Date(currentUser.createdAt).toLocaleDateString() : 'N/A'}
+                  {profileUser?.createdAt ? new Date(profileUser.createdAt).toLocaleDateString() : 'N/A'}
                 </p>
               </div>
             </div>
@@ -359,7 +421,7 @@ const UserProfile = () => {
           <div className="space-y-3 text-sm">
             <div className="flex justify-between">
               <span className="text-gray-600">User ID:</span>
-              <span className="font-mono text-gray-900">{currentUser?.id}</span>
+              <span className="font-mono text-gray-900">{profileUser?.id}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-600">Account Status:</span>
