@@ -429,7 +429,9 @@ const databaseService = {
       // Map camelCase to snake_case for database
       const dbUpdates = {};
       if (updates.title !== undefined) dbUpdates.title = updates.title;
+      if (updates.taskName !== undefined) dbUpdates.title = updates.taskName;
       if (updates.description !== undefined) dbUpdates.description = updates.description;
+      if (updates.taskDescription !== undefined) dbUpdates.description = updates.taskDescription;
       if (updates.assignedTo !== undefined) dbUpdates.assigned_to = updates.assignedTo;
       if (updates.assignedBy !== undefined) dbUpdates.assigned_by = updates.assignedBy;
       if (updates.project !== undefined) dbUpdates.project = updates.project;
@@ -438,6 +440,7 @@ const databaseService = {
       if (updates.status !== undefined) dbUpdates.status = updates.status;
       if (updates.startDate !== undefined) dbUpdates.start_date = updates.startDate;
       if (updates.dueDate !== undefined) dbUpdates.due_date = updates.dueDate;
+      if (updates.deadline !== undefined) dbUpdates.due_date = updates.deadline;
       if (updates.completedDate !== undefined) dbUpdates.completed_date = updates.completedDate;
       if (updates.estimatedHours !== undefined) dbUpdates.estimated_hours = updates.estimatedHours;
       if (updates.actualHours !== undefined) dbUpdates.actual_hours = updates.actualHours;
@@ -445,6 +448,8 @@ const databaseService = {
       if (updates.attachments !== undefined) dbUpdates.attachments = updates.attachments;
       if (updates.updatedAt !== undefined) dbUpdates.updated_at = updates.updatedAt;
       if (updates.poc !== undefined) dbUpdates.poc = updates.poc;
+      if (updates.timeline !== undefined) dbUpdates.timeline = updates.timeline;
+      if (updates.timelineHistory !== undefined) dbUpdates.timeline_history = updates.timelineHistory;
 
       // Manager feedback and progress fields
       if (updates.managerFeedback !== undefined) dbUpdates.manager_feedback = updates.managerFeedback;
