@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
-import { X, Link, Calendar, User, FileText, MessageCircle, CheckCircle, ArrowLeft, Loader, XCircle } from 'lucide-react';
+import { X, Link, Calendar, User, MessageCircle, CheckCircle, ArrowLeft, Loader, XCircle } from 'lucide-react';
 import { db } from '../../services/databaseService';
 import { formatDateTime } from '../../utils/helpers';
-import { DEPENDENCY_STATUS, TASK_STATUS } from '../../utils/taskConstants';
+import { DEPENDENCY_STATUS } from '../../utils/taskConstants';
 import toast from 'react-hot-toast';
 import DependencyTaskJourney from './DependencyTaskJourney';
 import TaskCommentsModal from './TaskCommentsModal';
@@ -166,79 +166,6 @@ const DependencyTaskDetailModal = ({ dependencyTaskId, onClose, currentUser }) =
 
     toast.success(`Status updated to ${newStatus.replace('_', ' ')}`);
     await loadTaskDetails();
-  };
-
-  const autoResolveBlocker = async () => {
-    try {
-      const now = new Date().toISOString();
-
-      // Update blocker status in parent task
-      const tasks = await db.getTasks();
-      const parentTaskData = tasks.find(t => t.id === depTask.parentTaskId);
-
-      if (parentTaskData && parentTaskData.blockerHistory) {
-        const updatedBlockerHistory = parentTaskData.blockerHistory.map(b => {
-          if (b.id === depTask.blockerId) {
-            return {
-              ...b,
-              resolved: true,
-              resolvedBy: currentUser.id,
-              resolvedByName: currentUser.name,
-              resolvedAt: now,
-              autoResolved: true
-            };
-          }
-          return b;
-        });
-
-        // Update task status back to IN_PROGRESS
-        const activity = {
-          id: `activity-${Date.now()}`,
-          type: 'BLOCKER_RESOLVED',
-          title: 'Blocker Auto-Resolved',
-          description: `All dependency tasks completed. Blocker automatically resolved. You can now continue working.`,
-          timestamp: now,
-          userName: 'System',
-          userId: 'system'
-        };
-
-        await db.updateTask(depTask.parentTaskId, {
-          status: TASK_STATUS.IN_PROGRESS,
-          blockerHistory: updatedBlockerHistory,
-          activityTimeline: [...(parentTaskData.activityTimeline || []), activity]
-        });
-
-        // Notify parent task assignee (validate parentTask exists and has required fields)
-        if (parentTask && parentTask.id && parentTask.assignedTo && parentTask.title) {
-          await db.createNotification({
-            userId: parentTask.assignedTo,
-            taskId: parentTask.id,
-            message: `Great news! All dependency tasks are completed. The blocker on "${parentTask.title}" has been resolved. You can now continue working.`,
-            type: 'blocker_auto_resolved',
-            metadata: {
-              blockerId: depTask.blockerId
-            }
-          });
-
-          // Notify manager if exists and different from assignee
-          if (parentTask.assignedBy && parentTask.assignedBy !== parentTask.assignedTo) {
-            await db.createNotification({
-              userId: parentTask.assignedBy,
-              taskId: parentTask.id,
-              message: `Blocker on task "${parentTask.title}" has been automatically resolved - all dependencies completed.`,
-              type: 'blocker_auto_resolved',
-              metadata: {
-                blockerId: depTask.blockerId
-              }
-            });
-          }
-        }
-
-        toast.success('🎉 All dependencies complete! Blocker has been auto-resolved.');
-      }
-    } catch (error) {
-      console.error('Error auto-resolving blocker:', error);
-    }
   };
 
   const handleAddProgressNote = async () => {

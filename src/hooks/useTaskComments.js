@@ -87,7 +87,7 @@ export const useTaskComments = (taskId) => {
 
   const addComment = async (commentData) => {
     const newComment = {
-      id: `comment-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      id: `comment-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
       taskId,
       text: commentData.text,
       authorId: commentData.authorId,
@@ -110,7 +110,7 @@ export const useTaskComments = (taskId) => {
     if (newComment.mentions && newComment.mentions.length > 0) {
       for (const userId of newComment.mentions) {
         await db.createNotification({
-          id: `notif-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          id: `notif-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
           userId,
           type: 'mention',
           taskId,
@@ -125,7 +125,7 @@ export const useTaskComments = (taskId) => {
     // Create notification for blocker
     if (newComment.type === 'blocker' && commentData.notifyUserId) {
       await db.createNotification({
-        id: `notif-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        id: `notif-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
         userId: commentData.notifyUserId,
         type: 'blocker',
         taskId,

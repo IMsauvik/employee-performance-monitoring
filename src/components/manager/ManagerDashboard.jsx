@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { LayoutDashboard, ListTodo, Users as UsersIcon, TrendingUp, Clock, AlertCircle, CheckCircle, Target, BarChart3, Send, Eye } from 'lucide-react';
+import { LayoutDashboard, ListTodo, Users as UsersIcon, TrendingUp, Clock, AlertCircle, CheckCircle, BarChart3, Send, Eye } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import Header from '../common/Header';
 import { useAuth } from '../../context/AuthContext';

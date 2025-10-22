@@ -1,7 +1,7 @@
 import { CheckCircle, Circle, Ban, Rocket, Zap } from 'lucide-react';
 import { TASK_STATUS, STATUS_INFO } from '../../utils/taskConstants';
 
-const TaskStatusJourney = ({ currentStatus, onStatusChange, userRole = 'employee' }) => {
+const TaskStatusJourney = ({ currentStatus, onStatusChange }) => {
   // Simple 3-stage journey for employees
   // Submission and review handled separately via buttons
   const employeeJourneySteps = [

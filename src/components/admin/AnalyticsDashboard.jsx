@@ -8,7 +8,7 @@ import { db } from '../../services/databaseService';
 import { calculatePerformanceMetrics } from '../../utils/helpers';
 
 const AnalyticsDashboard = () => {
-  const { currentUser } = useAuth();
+  useAuth();
   const { tasks } = useTasks();
   const [users, setUsers] = useState([]);
   const [timeRange, setTimeRange] = useState('30'); // days

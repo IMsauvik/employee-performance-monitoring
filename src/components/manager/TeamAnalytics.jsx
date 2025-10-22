@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { LayoutDashboard, ListTodo, Users as UsersIcon, Target, BarChart3, TrendingUp, Calendar, Download, Award, AlertCircle } from 'lucide-react';
-import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, ScatterChart, Scatter, ZAxis } from 'recharts';
+import { LayoutDashboard, ListTodo, Users as UsersIcon, BarChart3, TrendingUp, Calendar, Download, Award, AlertCircle } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ScatterChart, Scatter, ZAxis } from 'recharts';
 import Header from '../common/Header';
 import { useAuth } from '../../context/AuthContext';
 import { useTasks } from '../../hooks/useTasks';
@@ -10,8 +10,6 @@ import { calculateAdvancedMetrics, calculateTeamMetrics, getPerformanceGrade, ge
 const TeamAnalytics = () => {
   const { currentUser } = useAuth();
   const { tasks } = useTasks(currentUser?.id);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
   const [employees, setEmployees] = useState([]);
   const [dateRange, setDateRange] = useState('last30Days');
   const [customStart, setCustomStart] = useState('');
@@ -31,12 +29,9 @@ const TeamAnalytics = () => {
         const allUsers = await db.getUsers() || [];
         const employeeList = allUsers.filter(u => u.role === 'employee');
         setEmployees(employeeList);
-        setLoading(false);
       } catch (error) {
         console.error('Error loading employees:', error);
-        setError('Failed to load employee data');
         setEmployees([]);
-        setLoading(false);
       }
     };
     loadEmployees();
@@ -62,11 +57,6 @@ const TeamAnalytics = () => {
   // Calculate team metrics
   const teamMetrics = calculateTeamMetrics(employees, filteredTasks);
   const overallMetrics = calculateAdvancedMetrics(filteredTasks);
-
-  // Get selected employee data
-  const selectedEmpData = selectedEmployee === 'all'
-    ? null
-    : teamMetrics.find(e => e.id === selectedEmployee);
 
   // Performance distribution data for scatter plot
   const performanceScatter = teamMetrics.map(emp => ({
@@ -321,7 +311,7 @@ const TeamAnalytics = () => {
             Top Performers
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {topPerformers.map((emp, index) => {
+            {topPerformers.map((emp) => {
               const grade = getPerformanceGrade(emp.productivityScore);
               return (
                 <div key={emp.id} className="p-4 border-2 border-gray-200 rounded-xl hover:border-indigo-300 transition">

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { LayoutDashboard, Users, Shield, Target, Plus, Filter, Search, Calendar, CheckCircle, AlertCircle } from 'lucide-react';
+import { LayoutDashboard, Users, Shield, Target, Plus, Calendar, CheckCircle } from 'lucide-react';
 import Header from '../common/Header';
 import { useAuth } from '../../context/AuthContext';
 import { useGoals } from '../../hooks/useGoals';
@@ -8,7 +8,7 @@ import { goalCategories, goalCycles } from '../../data/goalsData';
 
 const AdminGoalsPage = () => {
   const { currentUser } = useAuth();
-  const { goals, addGoal, updateGoal, deleteGoal } = useGoals(currentUser?.id, currentUser?.role);
+  const { goals, addGoal } = useGoals(currentUser?.id, currentUser?.role);
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedCycle, setSelectedCycle] = useState('Q4-2025');
   const [employees, setEmployees] = useState([]);

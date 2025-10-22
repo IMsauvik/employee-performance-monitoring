@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { LayoutDashboard, Users, Shield, BarChart3, TrendingUp, Calendar, Download, Award, AlertCircle, Target } from 'lucide-react';
-import { LineChart, Line, BarChart, Bar, PieChart as RechartsPie, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar } from 'recharts';
+import { LayoutDashboard, Users, Shield, BarChart3, TrendingUp, Calendar, Download, Award } from 'lucide-react';
+import { Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area } from 'recharts';
 import Header from '../common/Header';
 import { useAuth } from '../../context/AuthContext';
 import { useTasks } from '../../hooks/useTasks';
@@ -8,7 +8,7 @@ import { db } from '../../services/databaseService';
 import { calculateAdvancedMetrics, calculateTeamMetrics, getPerformanceGrade, getDateRangePresets } from '../../utils/performanceMetrics';
 
 const AdminPerformanceOverview = () => {
-  const { currentUser } = useAuth();
+  useAuth();
   const { tasks } = useTasks();
   const [users, setUsers] = useState([]);
   const [dateRange, setDateRange] = useState('last30Days');
@@ -65,7 +65,6 @@ const AdminPerformanceOverview = () => {
 
   // Manager performance (based on their team's performance)
   const managerMetrics = managers.map(manager => {
-    const managerTasks = filteredTasks.filter(t => t.assignedBy === manager.id);
     const teamMembers = employees.filter(emp => emp.managerId === manager.id);
     const teamTasks = filteredTasks.filter(t => teamMembers.some(tm => tm.id === t.assignedTo));
     const teamMetrics = calculateAdvancedMetrics(teamTasks);
@@ -408,7 +407,7 @@ const AdminPerformanceOverview = () => {
               Manager Performance Overview
             </h3>
             <div className="space-y-4">
-              {topManagers.map((manager, index) => {
+              {topManagers.map((manager) => {
                 const grade = getPerformanceGrade(manager.productivityScore);
                 return (
                   <div key={manager.id} className="p-4 border-2 border-gray-200 rounded-xl hover:border-indigo-300 transition">

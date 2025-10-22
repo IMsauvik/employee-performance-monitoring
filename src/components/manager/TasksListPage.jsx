@@ -6,13 +6,12 @@ import { useTasks } from '../../hooks/useTasks';
 import { db } from '../../services/databaseService';
 import TasksTable from './TasksTable';
 import AssignTaskModal from './AssignTaskModal';
-import LoadingSpinner from '../common/LoadingSpinner';
 import { SkeletonTable } from '../common/SkeletonCard';
 import ExportMenu from '../common/ExportMenu';
 import { exportTasks } from '../../utils/exportUtils';
 
 const TasksListPage = () => {
-  const { currentUser } = useAuth();
+  useAuth();
   const { tasks, addTask, updateTask, deleteTask, refreshTasks } = useTasks();
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);

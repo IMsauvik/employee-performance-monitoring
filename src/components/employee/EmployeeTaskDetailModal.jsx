@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import { X, MessageCircle, AlertTriangle, Send, Clock, CheckCircle, Upload, File, Trash2, Download, Ban } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { formatDate, formatDateTime, getStatusColor, getStatusText, getPriorityColor, getDaysRemaining, getQualityRatingInfo } from '../../utils/helpers';
+import { formatDate, formatDateTime, getStatusText, getPriorityColor, getDaysRemaining, getQualityRatingInfo } from '../../utils/helpers';
 import { generateId } from '../../utils/helpers';
-import { TASK_STATUS, STATUS_FLOW, ACTIVITY_TYPE, DEPENDENCY_STATUS } from '../../utils/taskConstants';
+import { TASK_STATUS, ACTIVITY_TYPE, DEPENDENCY_STATUS } from '../../utils/taskConstants';
 import { db } from '../../services/databaseService';
 import NotificationService from '../../services/notificationService';
 import TaskCommentsModal from '../common/TaskCommentsModal';

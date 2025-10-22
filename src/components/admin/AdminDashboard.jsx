@@ -3,9 +3,8 @@ import { Users, LayoutDashboard, UserPlus, Edit, Trash2, Shield, Search, BarChar
 import { useNavigate } from 'react-router-dom';
 import Header from '../common/Header';
 import { useAuth } from '../../context/AuthContext';
-import { storage } from '../../utils/storage';
 import { useTasks } from '../../hooks/useTasks';
-import { calculatePerformanceMetrics, generateId } from '../../utils/helpers';
+import { calculatePerformanceMetrics } from '../../utils/helpers';
 import AddUserModal from './AddUserModal';
 import ExportMenu from '../common/ExportMenu';
 import { exportUsers } from '../../utils/exportUtils';
@@ -20,7 +19,6 @@ const AdminDashboard = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterRole, setFilterRole] = useState('all');
   const [showAddModal, setShowAddModal] = useState(false);
-  const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
     totalUsers: 0,
     managers: 0,
