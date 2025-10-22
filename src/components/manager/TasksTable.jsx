@@ -2,10 +2,13 @@ import { Eye, Trash2 } from 'lucide-react';
 import { formatDate, getStatusColor, getStatusText, getPriorityColor } from '../../utils/helpers';
 import { useState } from 'react';
 import TaskDetailModal from './TaskDetailModal';
+import ConfirmModal from '../common/ConfirmModal';
 
 const TasksTable = ({ tasks, employees, onUpdate, onDelete }) => {
   const [selectedTask, setSelectedTask] = useState(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [taskToDelete, setTaskToDelete] = useState(null);
 
   const getEmployeeName = (employeeId) => {
     const employee = employees.find(e => e.id === employeeId);
@@ -22,10 +25,21 @@ const TasksTable = ({ tasks, employees, onUpdate, onDelete }) => {
     setSelectedTask(null);
   };
 
-  const handleDeleteTask = (taskId) => {
-    if (window.confirm('Are you sure you want to delete this task?')) {
-      onDelete(taskId);
+  const handleDeleteClick = (task) => {
+    setTaskToDelete(task);
+    setShowDeleteModal(true);
+  };
+
+  const handleConfirmDelete = () => {
+    if (taskToDelete) {
+      onDelete(taskToDelete.id);
+      setTaskToDelete(null);
     }
+  };
+
+  const handleCloseDeleteModal = () => {
+    setShowDeleteModal(false);
+    setTaskToDelete(null);
   };
 
   if (tasks.length === 0) {
@@ -120,7 +134,7 @@ const TasksTable = ({ tasks, employees, onUpdate, onDelete }) => {
                       <Eye className="w-5 h-5" />
                     </button>
                     <button
-                      onClick={() => handleDeleteTask(task.id)}
+                      onClick={() => handleDeleteClick(task)}
                       className="text-red-600 hover:text-red-900 transition"
                       title="Delete Task"
                     >
@@ -141,6 +155,19 @@ const TasksTable = ({ tasks, employees, onUpdate, onDelete }) => {
           employees={employees}
           onClose={handleCloseDetailModal}
           onUpdate={onUpdate}
+        />
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && taskToDelete && (
+        <ConfirmModal
+          isOpen={showDeleteModal}
+          onClose={handleCloseDeleteModal}
+          onConfirm={handleConfirmDelete}
+          title="Delete Task"
+          message={`Are you sure you want to delete "${taskToDelete.taskName}"? This action cannot be undone.`}
+          confirmText="Delete"
+          cancelText="Cancel"
         />
       )}
     </>
