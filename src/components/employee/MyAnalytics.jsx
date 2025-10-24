@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
-import { LayoutDashboard, TrendingUp, Calendar, Award, BarChart3, PieChart, Download } from 'lucide-react';
+import { LayoutDashboard, TrendingUp, Calendar, Award, BarChart3, PieChart, Download, AlertTriangle, CheckCircle, XCircle } from 'lucide-react';
 import { LineChart, Line, BarChart, Bar, PieChart as RechartsPie, Pie, Cell, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area } from 'recharts';
 
 import Header from '../common/Header';
 import { useAuth } from '../../context/AuthContext';
 import { useTasks } from '../../hooks/useTasks';
 import { calculateAdvancedMetrics, calculateTrendData, calculateProjectMetrics, getPerformanceGrade, getDateRangePresets } from '../../utils/performanceMetrics';
+import { validateAnalyticsData, generateDataIntegrityReport } from '../../utils/analyticsValidation';
 
 const MyAnalytics = () => {
   const { currentUser } = useAuth();
@@ -47,12 +48,18 @@ const MyAnalytics = () => {
   const [trendData, setTrendData] = useState([]);
   const [projectMetrics, setProjectMetrics] = useState([]);
   const [performanceGrade, setPerformanceGrade] = useState({ grade: 'N/A', label: 'Not Available', color: '#6b7280' });
+  const [dataIntegrityReport, setDataIntegrityReport] = useState(null);
 
   useEffect(() => {
     const activeDates = getActiveDateRange();
     const calculateMetrics = () => {
       try {
         if (tasks && Array.isArray(tasks) && tasks.length > 0) {
+          // Validate data before calculating metrics
+          const validation = validateAnalyticsData(tasks);
+          const integrityReport = generateDataIntegrityReport(validation);
+          setDataIntegrityReport(integrityReport);
+
           const newMetrics = calculateAdvancedMetrics(tasks, activeDates.start, activeDates.end);
           const newTrendData = calculateTrendData(tasks, 30);
           const newProjectMetrics = calculateProjectMetrics(tasks);
@@ -118,7 +125,7 @@ const MyAnalytics = () => {
     { metric: 'Completion', value: metrics.completionRate },
     { metric: 'On-Time', value: metrics.onTimeRate },
     { metric: 'Productivity', value: metrics.productivityScore },
-    { metric: 'Quality', value: metrics.qualityScore || 85 },
+    { metric: 'Quality', value: metrics.qualityScore || 0 }, // Show 0 instead of fake data
     { metric: 'Workload', value: metrics.workloadScore }
   ];
 
@@ -251,7 +258,12 @@ const MyAnalytics = () => {
                 </div>
                 <div>
                   <p className="text-sm text-indigo-100">Quality Score</p>
-                  <p className="text-4xl font-bold">{metrics.qualityScore || 85}/100</p>
+                  <p className="text-4xl font-bold">
+                    {metrics.qualityScore > 0 ? `${metrics.qualityScore}/100` : 'N/A'}
+                  </p>
+                  {metrics.qualityScore === 0 && (
+                    <p className="text-xs text-indigo-200 mt-1">No ratings yet</p>
+                  )}
                 </div>
               </div>
             </div>
@@ -397,6 +409,59 @@ const MyAnalytics = () => {
             </ResponsiveContainer>
           </div>
         </div>
+
+        {/* Data Integrity Report */}
+        {dataIntegrityReport && (dataIntegrityReport.status === 'critical' || dataIntegrityReport.status === 'warning' || dataIntegrityReport.status === 'poor') && (
+          <div className={`rounded-2xl shadow-lg p-6 border-2 mb-6 ${
+            dataIntegrityReport.status === 'critical' ? 'bg-red-50 border-red-300' :
+            dataIntegrityReport.status === 'poor' ? 'bg-orange-50 border-orange-300' :
+            'bg-yellow-50 border-yellow-300'
+          }`}>
+            <div className="flex items-start gap-4 mb-4">
+              {dataIntegrityReport.status === 'critical' ? (
+                <XCircle className="w-8 h-8 text-red-600 flex-shrink-0" />
+              ) : (
+                <AlertTriangle className="w-8 h-8 text-yellow-600 flex-shrink-0" />
+              )}
+              <div className="flex-1">
+                <h3 className="text-xl font-bold text-gray-900 mb-2">Data Quality Alert</h3>
+                <p className="text-gray-700 mb-3">{dataIntegrityReport.message}</p>
+                {dataIntegrityReport.warnings.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="font-semibold text-gray-900">Warnings:</p>
+                    <ul className="list-disc list-inside space-y-1">
+                      {dataIntegrityReport.warnings.map((warning, idx) => (
+                        <li key={idx} className="text-sm text-gray-700">{warning}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {dataIntegrityReport.errors.length > 0 && (
+                  <div className="mt-3 space-y-2">
+                    <p className="font-semibold text-red-900">Errors:</p>
+                    <ul className="list-disc list-inside space-y-1">
+                      {dataIntegrityReport.errors.map((error, idx) => (
+                        <li key={idx} className="text-sm text-red-700">{error}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {dataIntegrityReport && dataIntegrityReport.status === 'good' && (
+          <div className="bg-green-50 rounded-2xl shadow-lg p-6 border-2 border-green-300 mb-6">
+            <div className="flex items-center gap-4">
+              <CheckCircle className="w-8 h-8 text-green-600" />
+              <div>
+                <h3 className="text-xl font-bold text-green-900">Data Quality: Excellent</h3>
+                <p className="text-green-700">Your performance data is complete and accurate (Score: {dataIntegrityReport.dataQualityScore}/100)</p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Insights & Recommendations */}
         <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">

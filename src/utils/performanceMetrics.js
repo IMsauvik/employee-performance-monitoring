@@ -1,13 +1,64 @@
 // Advanced Performance Metrics Calculator
 
+// Helper function to validate and parse dates safely
+const safeParseDate = (dateValue) => {
+  if (!dateValue) return null;
+  try {
+    const date = new Date(dateValue);
+    return isNaN(date.getTime()) ? null : date;
+  } catch (error) {
+    console.warn('Invalid date value:', dateValue);
+    return null;
+  }
+};
+
+// Helper function to validate task data
+const validateTask = (task) => {
+  if (!task || typeof task !== 'object') return false;
+  return true;
+};
+
+// Default metrics structure for error cases
+const getDefaultMetrics = () => ({
+  totalTasks: 0,
+  completedTasks: 0,
+  inProgressTasks: 0,
+  notStartedTasks: 0,
+  overdueTasks: 0,
+  blockedTasks: 0,
+  completionRate: 0,
+  onTimeRate: 0,
+  averageCompletionTime: 0,
+  productivityScore: 0,
+  qualityScore: 0,
+  workloadScore: 0,
+  onTimeCompletions: 0,
+  tasksWithRatings: 0
+});
+
 export const calculateAdvancedMetrics = (tasks, startDate = null, endDate = null) => {
+  // Validate input
+  if (!Array.isArray(tasks)) {
+    console.error('calculateAdvancedMetrics: tasks must be an array');
+    return getDefaultMetrics();
+  }
+
+  // Filter out invalid tasks
+  const validTasks = tasks.filter(validateTask);
+
   // Filter tasks by date range if provided
-  let filteredTasks = tasks;
+  let filteredTasks = validTasks;
   if (startDate && endDate) {
-    filteredTasks = tasks.filter(task => {
-      const taskDate = new Date(task.createdAt || task.assignedDate);
-      return taskDate >= new Date(startDate) && taskDate <= new Date(endDate);
-    });
+    const start = safeParseDate(startDate);
+    const end = safeParseDate(endDate);
+
+    if (start && end) {
+      filteredTasks = validTasks.filter(task => {
+        const taskDate = safeParseDate(task.createdAt || task.assignedDate);
+        if (!taskDate) return false;
+        return taskDate >= start && taskDate <= end;
+      });
+    }
   }
 
   const totalTasks = filteredTasks.length;
@@ -22,21 +73,32 @@ export const calculateAdvancedMetrics = (tasks, startDate = null, endDate = null
 
   // On-Time Delivery Rate
   const onTimeCompletions = filteredTasks.filter(t => {
-    if (t.status !== 'completed' || !t.completedDate || !t.dueDate) return false;
-    return new Date(t.completedDate) <= new Date(t.dueDate);
+    if (t.status !== 'completed') return false;
+    const completedDate = safeParseDate(t.completedDate);
+    const dueDate = safeParseDate(t.dueDate);
+    if (!completedDate || !dueDate) return false;
+    return completedDate <= dueDate;
   }).length;
   const onTimeRate = completedTasks > 0 ? Math.round((onTimeCompletions / completedTasks) * 100) : 0;
 
   // Average Completion Time (in days)
-  const tasksWithCompletionTime = filteredTasks.filter(t =>
-    t.status === 'completed' && t.assignedDate && t.completedDate
-  );
+  const tasksWithCompletionTime = filteredTasks.filter(t => {
+    if (t.status !== 'completed') return false;
+    const assignedDate = safeParseDate(t.assignedDate);
+    const completedDate = safeParseDate(t.completedDate);
+    return assignedDate && completedDate && completedDate >= assignedDate;
+  });
+
   const totalCompletionTime = tasksWithCompletionTime.reduce((sum, task) => {
-    const start = new Date(task.assignedDate);
-    const end = new Date(task.completedDate);
+    const start = safeParseDate(task.assignedDate);
+    const end = safeParseDate(task.completedDate);
+    if (!start || !end) return sum;
     const days = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
+    // Ignore negative or unreasonably large values
+    if (days < 0 || days > 365) return sum;
     return sum + days;
   }, 0);
+
   const averageCompletionTime = tasksWithCompletionTime.length > 0
     ? Math.round(totalCompletionTime / tasksWithCompletionTime.length)
     : 0;
@@ -50,11 +112,16 @@ export const calculateAdvancedMetrics = (tasks, startDate = null, endDate = null
   );
 
   // Quality Score (based on feedback ratings if available)
-  const tasksWithRatings = filteredTasks.filter(t => t.rating);
+  const tasksWithRatings = filteredTasks.filter(t => {
+    const rating = Number(t.rating);
+    return !isNaN(rating) && rating > 0 && rating <= 5;
+  });
+
   const averageRating = tasksWithRatings.length > 0
-    ? tasksWithRatings.reduce((sum, t) => sum + t.rating, 0) / tasksWithRatings.length
+    ? tasksWithRatings.reduce((sum, t) => sum + Number(t.rating), 0) / tasksWithRatings.length
     : 0;
-  const qualityScore = Math.round((averageRating / 5) * 100);
+
+  const qualityScore = averageRating > 0 ? Math.round((averageRating / 5) * 100) : 0;
 
   // Workload Balance
   const workloadScore = totalTasks > 0 ? Math.min(100, Math.max(0, 100 - (totalTasks - 10) * 5)) : 100;
@@ -184,40 +251,40 @@ export const getPerformanceGrade = (score) => {
 };
 
 export const getDateRangePresets = () => {
-  const today = new Date();
+  const now = new Date();
 
   return {
     today: {
-      start: new Date(today.setHours(0, 0, 0, 0)),
-      end: new Date(today.setHours(23, 59, 59, 999))
+      start: new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0),
+      end: new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999)
     },
     last7Days: {
-      start: new Date(new Date().setDate(today.getDate() - 7)),
-      end: new Date()
+      start: new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7, 0, 0, 0, 0),
+      end: new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999)
     },
     last30Days: {
-      start: new Date(new Date().setDate(today.getDate() - 30)),
-      end: new Date()
+      start: new Date(now.getFullYear(), now.getMonth(), now.getDate() - 30, 0, 0, 0, 0),
+      end: new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999)
     },
     last90Days: {
-      start: new Date(new Date().setDate(today.getDate() - 90)),
-      end: new Date()
+      start: new Date(now.getFullYear(), now.getMonth(), now.getDate() - 90, 0, 0, 0, 0),
+      end: new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999)
     },
     thisMonth: {
-      start: new Date(today.getFullYear(), today.getMonth(), 1),
-      end: new Date(today.getFullYear(), today.getMonth() + 1, 0)
+      start: new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0),
+      end: new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999)
     },
     lastMonth: {
-      start: new Date(today.getFullYear(), today.getMonth() - 1, 1),
-      end: new Date(today.getFullYear(), today.getMonth(), 0)
+      start: new Date(now.getFullYear(), now.getMonth() - 1, 1, 0, 0, 0, 0),
+      end: new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999)
     },
     thisQuarter: {
-      start: new Date(today.getFullYear(), Math.floor(today.getMonth() / 3) * 3, 1),
-      end: new Date(today.getFullYear(), Math.floor(today.getMonth() / 3) * 3 + 3, 0)
+      start: new Date(now.getFullYear(), Math.floor(now.getMonth() / 3) * 3, 1, 0, 0, 0, 0),
+      end: new Date(now.getFullYear(), Math.floor(now.getMonth() / 3) * 3 + 3, 0, 23, 59, 59, 999)
     },
     thisYear: {
-      start: new Date(today.getFullYear(), 0, 1),
-      end: new Date(today.getFullYear(), 11, 31)
+      start: new Date(now.getFullYear(), 0, 1, 0, 0, 0, 0),
+      end: new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999)
     }
   };
 };

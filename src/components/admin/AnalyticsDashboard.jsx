@@ -1,17 +1,19 @@
 import { useState, useEffect } from 'react';
-import { LayoutDashboard, Users, Shield, TrendingUp, BarChart3, PieChart, Activity } from 'lucide-react';
+import { LayoutDashboard, Users, Shield, TrendingUp, BarChart3, PieChart, Activity, AlertTriangle, Info } from 'lucide-react';
 import { LineChart, Line, BarChart, Bar, PieChart as RechartsPie, Pie, Cell, AreaChart, Area, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import Header from '../common/Header';
 import { useAuth } from '../../context/AuthContext';
 import { useTasks } from '../../hooks/useTasks';
 import { db } from '../../services/databaseService';
 import { calculatePerformanceMetrics } from '../../utils/helpers';
+import { validateAnalyticsData, generateDataIntegrityReport } from '../../utils/analyticsValidation';
 
 const AnalyticsDashboard = () => {
   useAuth();
   const { tasks } = useTasks();
   const [users, setUsers] = useState([]);
   const [timeRange, setTimeRange] = useState('30'); // days
+  const [dataIntegrityReport, setDataIntegrityReport] = useState(null);
 
   const navigation = [
     { name: 'Dashboard', path: '/admin/dashboard', icon: LayoutDashboard },
@@ -33,24 +35,75 @@ const AnalyticsDashboard = () => {
     loadUsers();
   }, []);
 
-  // Performance Trend Data (Last 6 months)
-  const performanceTrendData = [
-    { month: 'May', engagement: 82, productivity: 78, goalAchievement: 75 },
-    { month: 'Jun', engagement: 85, productivity: 82, goalAchievement: 78 },
-    { month: 'Jul', engagement: 83, productivity: 85, goalAchievement: 80 },
-    { month: 'Aug', engagement: 86, productivity: 88, goalAchievement: 82 },
-    { month: 'Sep', engagement: 84, productivity: 90, goalAchievement: 85 },
-    { month: 'Oct', engagement: 87, productivity: 94, goalAchievement: 78 }
-  ];
+  // Validate analytics data
+  useEffect(() => {
+    if (tasks && tasks.length > 0) {
+      const validation = validateAnalyticsData(tasks, users);
+      const integrityReport = generateDataIntegrityReport(validation);
+      setDataIntegrityReport(integrityReport);
+    }
+  }, [tasks, users]);
 
-  // Department Performance Data
-  const departmentData = [
-    { department: 'Engineering', performance: 85, change: 3 },
-    { department: 'Sales', performance: 81, change: 7 },
-    { department: 'Marketing', performance: 79, change: 0 },
-    { department: 'HR', performance: 88, change: 2 },
-    { department: 'Operations', performance: 76, change: -2 }
-  ];
+  // Performance Trend Data (Last 6 months) - CALCULATED FROM ACTUAL DATA
+  const performanceTrendData = (() => {
+    const monthlyData = [];
+    const now = new Date();
+
+    for (let i = 5; i >= 0; i--) {
+      const monthDate = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const monthStart = new Date(monthDate.getFullYear(), monthDate.getMonth(), 1);
+      const monthEnd = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0);
+
+      const monthTasks = tasks.filter(t => {
+        const taskDate = new Date(t.createdAt || t.assignedDate);
+        return taskDate >= monthStart && taskDate <= monthEnd;
+      });
+
+      const completedTasks = monthTasks.filter(t => t.status === 'completed').length;
+      const totalTasks = monthTasks.length;
+      const onTimeTasks = monthTasks.filter(t => {
+        if (t.status !== 'completed' || !t.completedDate || !t.dueDate) return false;
+        return new Date(t.completedDate) <= new Date(t.dueDate);
+      }).length;
+
+      monthlyData.push({
+        month: monthDate.toLocaleString('default', { month: 'short' }),
+        engagement: totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0,
+        productivity: totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0,
+        goalAchievement: completedTasks > 0 ? Math.round((onTimeTasks / completedTasks) * 100) : 0
+      });
+    }
+
+    return monthlyData;
+  })();
+
+  // Department Performance Data - CALCULATED FROM ACTUAL DATA
+  const departmentData = (() => {
+    const deptMap = {};
+
+    users.forEach(user => {
+      if (!user.department) return;
+
+      const userTasks = tasks.filter(t => t.assignedTo === user.id);
+      const completedTasks = userTasks.filter(t => t.status === 'completed').length;
+      const totalTasks = userTasks.length;
+
+      if (!deptMap[user.department]) {
+        deptMap[user.department] = { totalTasks: 0, completedTasks: 0 };
+      }
+
+      deptMap[user.department].totalTasks += totalTasks;
+      deptMap[user.department].completedTasks += completedTasks;
+    });
+
+    return Object.keys(deptMap).map(dept => ({
+      department: dept,
+      performance: deptMap[dept].totalTasks > 0
+        ? Math.round((deptMap[dept].completedTasks / deptMap[dept].totalTasks) * 100)
+        : 0,
+      change: 0 // TODO: Implement historical comparison when metrics storage is added
+    }));
+  })();
 
   // Task Status Distribution
   const taskStatusData = [
@@ -79,26 +132,69 @@ const AnalyticsDashboard = () => {
     })
     .slice(0, 8); // Top 8 employees
 
-  // KPI Radar Chart Data
-  const kpiRadarData = [
-    { metric: 'Task Completion', value: 94 },
-    { metric: 'On-Time Delivery', value: 89 },
-    { metric: 'Quality Score', value: 85 },
-    { metric: 'Team Collaboration', value: 91 },
-    { metric: 'Goal Achievement', value: 78 },
-    { metric: 'Employee Satisfaction', value: 87 }
-  ];
+  // KPI Radar Chart Data - CALCULATED FROM ACTUAL DATA
+  const kpiRadarData = (() => {
+    const allTasks = tasks;
+    const completedTasks = allTasks.filter(t => t.status === 'completed');
+    const totalTasks = allTasks.length;
 
-  // Weekly Activity Data
-  const weeklyActivityData = [
-    { day: 'Mon', tasksCreated: 12, tasksCompleted: 8, hoursLogged: 45 },
-    { day: 'Tue', tasksCreated: 15, tasksCompleted: 10, hoursLogged: 52 },
-    { day: 'Wed', tasksCreated: 10, tasksCompleted: 14, hoursLogged: 48 },
-    { day: 'Thu', tasksCreated: 18, tasksCompleted: 12, hoursLogged: 50 },
-    { day: 'Fri', tasksCreated: 14, tasksCompleted: 16, hoursLogged: 46 },
-    { day: 'Sat', tasksCreated: 5, tasksCompleted: 8, hoursLogged: 20 },
-    { day: 'Sun', tasksCreated: 3, tasksCompleted: 5, hoursLogged: 15 }
-  ];
+    const taskCompletion = totalTasks > 0 ? Math.round((completedTasks.length / totalTasks) * 100) : 0;
+
+    const onTimeTasks = allTasks.filter(t => {
+      if (t.status !== 'completed' || !t.completedDate || !t.dueDate) return false;
+      return new Date(t.completedDate) <= new Date(t.dueDate);
+    }).length;
+    const onTimeDelivery = completedTasks.length > 0 ? Math.round((onTimeTasks / completedTasks.length) * 100) : 0;
+
+    const tasksWithRatings = allTasks.filter(t => t.rating && t.rating > 0);
+    const qualityScore = tasksWithRatings.length > 0
+      ? Math.round((tasksWithRatings.reduce((sum, t) => sum + t.rating, 0) / tasksWithRatings.length) * 20)
+      : 0;
+
+    return [
+      { metric: 'Task Completion', value: taskCompletion },
+      { metric: 'On-Time Delivery', value: onTimeDelivery },
+      { metric: 'Quality Score', value: qualityScore },
+      { metric: 'Team Collaboration', value: 0 }, // TODO: Add collaboration tracking
+      { metric: 'Goal Achievement', value: onTimeDelivery },
+      { metric: 'Employee Satisfaction', value: 0 } // TODO: Add satisfaction surveys
+    ];
+  })();
+
+  // Weekly Activity Data - CALCULATED FROM ACTUAL DATA
+  const weeklyActivityData = (() => {
+    const weekData = [];
+    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const now = new Date();
+
+    for (let i = 6; i >= 0; i--) {
+      const date = new Date(now);
+      date.setDate(date.getDate() - i);
+      const dateStr = date.toISOString().split('T')[0];
+
+      const dayTasks = tasks.filter(t => {
+        const taskDate = new Date(t.createdAt || t.assignedDate);
+        return taskDate.toISOString().split('T')[0] === dateStr;
+      });
+
+      const completedToday = tasks.filter(t => {
+        if (t.status !== 'completed' || !t.completedDate) return false;
+        const compDate = new Date(t.completedDate);
+        return compDate.toISOString().split('T')[0] === dateStr;
+      }).length;
+
+      const hoursLogged = dayTasks.reduce((sum, t) => sum + (t.actual_hours || 0), 0);
+
+      weekData.push({
+        day: dayNames[date.getDay()],
+        tasksCreated: dayTasks.length,
+        tasksCompleted: completedToday,
+        hoursLogged: Math.round(hoursLogged)
+      });
+    }
+
+    return weekData;
+  })();
 
   const metrics = calculatePerformanceMetrics(tasks);
 
@@ -127,17 +223,53 @@ const AnalyticsDashboard = () => {
           </select>
         </div>
 
-        {/* KPI Cards */}
+        {/* Data Integrity Warning Banner */}
+        {dataIntegrityReport && (dataIntegrityReport.status === 'critical' || dataIntegrityReport.status === 'poor' || dataIntegrityReport.warnings.length > 3) && (
+          <div className="bg-amber-50 border-2 border-amber-300 rounded-2xl p-6 mb-6">
+            <div className="flex items-start gap-4">
+              <AlertTriangle className="w-8 h-8 text-amber-600 flex-shrink-0 mt-1" />
+              <div className="flex-1">
+                <h3 className="text-lg font-bold text-amber-900 mb-2">
+                  Analytics Data Quality Alert
+                </h3>
+                <p className="text-amber-800 mb-3">
+                  Some analytics may be inaccurate due to incomplete or missing data.
+                  Data Quality Score: {dataIntegrityReport.dataQualityScore}/100
+                </p>
+                {dataIntegrityReport.warnings.length > 0 && (
+                  <div className="bg-white rounded-lg p-4">
+                    <p className="font-semibold text-gray-900 mb-2">Issues Detected:</p>
+                    <ul className="list-disc list-inside space-y-1 text-sm">
+                      {dataIntegrityReport.warnings.slice(0, 5).map((warning, idx) => (
+                        <li key={idx} className="text-gray-700">{warning}</li>
+                      ))}
+                      {dataIntegrityReport.warnings.length > 5 && (
+                        <li className="text-gray-600 italic">...and {dataIntegrityReport.warnings.length - 5} more issues</li>
+                      )}
+                    </ul>
+                  </div>
+                )}
+                <div className="mt-3 flex items-center gap-2 text-sm text-amber-800">
+                  <Info className="w-4 h-4" />
+                  <span className="font-semibold">Important:</span>
+                  <span>Do not use this data for employment decisions until data quality improves</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* KPI Cards - CALCULATED FROM ACTUAL DATA */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
             <div className="flex items-center justify-between mb-4">
               <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-emerald-500 rounded-xl flex items-center justify-center">
                 <TrendingUp className="w-6 h-6 text-white" />
               </div>
-              <span className="text-xs font-semibold px-2 py-1 bg-green-100 text-green-800 rounded-full">+5%</span>
+              <span className="text-xs font-semibold px-2 py-1 bg-gray-100 text-gray-600 rounded-full">N/A</span>
             </div>
-            <p className="text-sm font-medium text-gray-600 mb-1">Employee Engagement</p>
-            <p className="text-3xl font-bold text-gray-900">87%</p>
+            <p className="text-sm font-medium text-gray-600 mb-1">Active Employees</p>
+            <p className="text-3xl font-bold text-gray-900">{users.filter(u => u.role === 'employee' && u.is_active).length}</p>
           </div>
 
           <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
@@ -145,7 +277,7 @@ const AnalyticsDashboard = () => {
               <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-xl flex items-center justify-center">
                 <BarChart3 className="w-6 h-6 text-white" />
               </div>
-              <span className="text-xs font-semibold px-2 py-1 bg-blue-100 text-blue-800 rounded-full">+3%</span>
+              <span className="text-xs font-semibold px-2 py-1 bg-gray-100 text-gray-600 rounded-full">Actual</span>
             </div>
             <p className="text-sm font-medium text-gray-600 mb-1">Task Completion</p>
             <p className="text-3xl font-bold text-gray-900">{metrics.completionRate}%</p>
@@ -156,10 +288,19 @@ const AnalyticsDashboard = () => {
               <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl flex items-center justify-center">
                 <Activity className="w-6 h-6 text-white" />
               </div>
-              <span className="text-xs font-semibold px-2 py-1 bg-red-100 text-red-800 rounded-full">-2%</span>
+              <span className="text-xs font-semibold px-2 py-1 bg-gray-100 text-gray-600 rounded-full">Actual</span>
             </div>
-            <p className="text-sm font-medium text-gray-600 mb-1">Goal Achievement</p>
-            <p className="text-3xl font-bold text-gray-900">78%</p>
+            <p className="text-sm font-medium text-gray-600 mb-1">On-Time Delivery</p>
+            <p className="text-3xl font-bold text-gray-900">
+              {(() => {
+                const completedTasks = tasks.filter(t => t.status === 'completed');
+                const onTimeTasks = tasks.filter(t => {
+                  if (t.status !== 'completed' || !t.completedDate || !t.dueDate) return false;
+                  return new Date(t.completedDate) <= new Date(t.dueDate);
+                }).length;
+                return completedTasks.length > 0 ? Math.round((onTimeTasks / completedTasks.length) * 100) : 0;
+              })()}%
+            </p>
           </div>
 
           <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
@@ -167,10 +308,17 @@ const AnalyticsDashboard = () => {
               <div className="w-12 h-12 bg-gradient-to-br from-orange-500 to-red-500 rounded-xl flex items-center justify-center">
                 <PieChart className="w-6 h-6 text-white" />
               </div>
-              <span className="text-xs font-semibold px-2 py-1 bg-green-100 text-green-800 rounded-full">+8%</span>
+              <span className="text-xs font-semibold px-2 py-1 bg-gray-100 text-gray-600 rounded-full">Actual</span>
             </div>
-            <p className="text-sm font-medium text-gray-600 mb-1">Productivity Score</p>
-            <p className="text-3xl font-bold text-gray-900">94</p>
+            <p className="text-sm font-medium text-gray-600 mb-1">Avg Quality Rating</p>
+            <p className="text-3xl font-bold text-gray-900">
+              {(() => {
+                const tasksWithRatings = tasks.filter(t => t.rating && t.rating > 0);
+                if (tasksWithRatings.length === 0) return 'N/A';
+                const avg = tasksWithRatings.reduce((sum, t) => sum + t.rating, 0) / tasksWithRatings.length;
+                return avg.toFixed(1) + '/5';
+              })()}
+            </p>
           </div>
         </div>
 
